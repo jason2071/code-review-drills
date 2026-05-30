@@ -11,7 +11,7 @@
 
 ## หมวด
 
-**Backend** — Go (logic/edge, concurrency, error & resource, unit test), SQL, DB design, system design
+**Backend** — Go (logic/edge, concurrency, error & resource, unit test), SQL, DB design, DB ออกแบบจากโจทย์ (scenario → schema), system design
 **Frontend** — TypeScript, React, CSS/layout, Playwright E2E
 
 ## รัน
