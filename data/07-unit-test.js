@@ -198,7 +198,30 @@ func checkUser(t *testing.T, u *User) {
     assert.True(t, u.Active)
 }
 \`\`\`
-**หลัก:** ฟังก์ชันที่รับ \`*testing.T\` แล้ว assert เอง → ใส่ \`t.Helper()\` เสมอ`}
+**หลัก:** ฟังก์ชันที่รับ \`*testing.T\` แล้ว assert เอง → ใส่ \`t.Helper()\` เสมอ`},
+   {type:"find", title:"เทสต์ decimal (shopspring) fail ทั้งที่ค่าเท่ากัน",
+    code:`import "github.com/shopspring/decimal"
+
+func TestTotal(t *testing.T) {
+\tgot := Total(cart)                    // คืน decimal.Decimal
+\twant := decimal.NewFromInt(100)
+\tassert.Equal(t, want, got)
+}
+// เทสต์ fail: ทั้งที่ปริ๊นออกมาก็ "100" เท่ากัน?`,
+    answer:`**2 ชั้น — ต้องรู้ว่า \`decimal\` คือ lib นอก ถึงจะเข้าใจว่าพังเพราะอะไร**
+
+1. **\`decimal\` ไม่มีใน Go มาตรฐาน** — มาจาก \`github.com/shopspring/decimal\` ต้อง \`go get\` / มีใน go.mod ก่อน (Go ไม่มี decimal type ในตัว — มีแค่ float, ซึ่งห้ามใช้กับเงิน) ถ้าไม่รู้ตรงนี้จะงงว่าทำไม build/เทสต์พัง
+
+2. **\`assert.Equal\` เทียบ struct ด้วย \`reflect.DeepEqual\`** — \`decimal.Decimal\` ข้างในเก็บเป็น \`(coefficient *big.Int, exp int32)\` ค่าเท่ากันแต่ **representation ต่าง → DeepEqual = false**
+   ตัวอย่าง: ผลบวกราคาออกมาเป็น \`"100.00"\` (coef 10000, exp -2) ส่วน \`NewFromInt(100)\` = (coef 100, exp 0) → ตัวเลข = 100 เท่ากัน แต่ field ต่าง → fail
+
+ที่ถูก — เทียบด้วย **method ของ decimal เอง**:
+\`\`\`
+assert.True(t, want.Equal(got))     // .Equal เทียบค่าจริง ไม่สน exp
+// หรือ
+assert.Zero(t, want.Cmp(got))       // Cmp == 0 เมื่อค่าเท่ากัน
+\`\`\`
+**หลัก:** type จาก lib นอกที่เป็น struct (\`decimal\`, \`big.Int\`/\`big.Rat\`, \`time.Time\`) → เทียบด้วย method ของมันเอง (\`.Equal\`/\`.Cmp\`) อย่าใช้ \`assert.Equal\`/\`DeepEqual\` ที่เทียบ field ดิบ`}
   ]
 }
 );
