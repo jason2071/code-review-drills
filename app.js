@@ -1,10 +1,25 @@
 const escapeHtml = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-const fmt = s => escapeHtml(s)
-  .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
-  .replace(/`([^`]+?)`/g,'<code>$1</code>')
-  .replace(/\[REAL\]/g,'<span class="verdict v-real">จริง</span>')
-  .replace(/\[FAKE\]/g,'<span class="verdict v-fake">มั่ว</span>')
-  .replace(/\n\n/g,'</p><p>').replace(/\n/g,'<br>');
+const fmt = s => {
+  // pull fenced ``` code blocks out first so their whitespace/indentation survive.
+  // \x01 sentinel survives escapeHtml + the inline replaces and never collides with text.
+  const blocks = [];
+  s = s.replace(/```\r?\n?([\s\S]*?)```/g, (_, code) => {
+    blocks.push(code.replace(/\r?\n$/,''));
+    return `\x01${blocks.length-1}\x01`;
+  });
+  s = escapeHtml(s)
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/`([^`]+?)`/g,'<code>$1</code>')
+    .replace(/\[REAL\]/g,'<span class="verdict v-real">จริง</span>')
+    .replace(/\[FAKE\]/g,'<span class="verdict v-fake">มั่ว</span>')
+    .replace(/\n\n/g,'</p><p>').replace(/\n/g,'<br>');
+  // restore code blocks as real <pre>, breaking out of the wrapping <p>
+  s = s.replace(/\x01(\d+)\x01/g,(_,i)=>`</p><pre class="code">${escapeHtml(blocks[+i])}</pre><p>`);
+  return s
+    .replace(/<br>\s*<\/p><pre/g,'</p><pre')
+    .replace(/<\/pre><p>\s*<br>/g,'</pre><p>')
+    .replace(/<p>\s*<\/p>/g,'');
+};
 
 const nav=document.getElementById('nav'),main=document.getElementById('main'),sidebar=document.getElementById('sidebar');
 const groups=[...new Set(DATA.map(d=>d.group))];
