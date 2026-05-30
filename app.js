@@ -63,10 +63,16 @@ function render(cat){
     if(p.ai){const aiEl=main.querySelector(`[data-ai="${id}"]`);if(aiEl)aiEl.textContent=p.ai;}
   });
   window.scrollTo(0,0);
+  try{localStorage.setItem('crd-cat',cat);}catch(e){}
+  if(location.hash.slice(1)!==cat) history.replaceState(null,'','#'+cat);
 }
 window.toggle=function(id){
   const a=document.getElementById('ans-'+id),b=document.getElementById('btn-'+id);
   const open=a.classList.toggle('show');b.textContent=open?'▾ ซ่อนเฉลย':'▸ ดูเฉลย';
 };
 document.getElementById('menuBtn').onclick=()=>sidebar.classList.toggle('open');
-render(DATA[0].cat);
+const valid=c=>DATA.some(d=>d.cat===c);
+let saved;try{saved=localStorage.getItem('crd-cat');}catch(e){}
+const initial=[location.hash.slice(1),saved].find(valid)||DATA[0].cat;
+render(initial);
+window.addEventListener('hashchange',()=>{const c=location.hash.slice(1);if(valid(c)&&c!==document.querySelector('.navitem.active')?.dataset.cat)render(c);});
