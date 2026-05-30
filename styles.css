@@ -107,6 +107,12 @@
   .v-real{background:rgba(192,57,43,.13);color:var(--real)}
   .v-fake{background:rgba(179,115,15,.14);color:var(--fake)}
   .answer pre.code{margin-top:12px}
+  .atable{border-collapse:collapse;width:100%;margin:12px 0 4px;font-size:13px;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .atable th,.atable td{text-align:left;padding:8px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  .atable th{background:var(--panel-2);font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:600;color:var(--muted);letter-spacing:.3px}
+  .atable tr:last-child td,.atable tbody tr:last-child td{border-bottom:none}
+  .atable td{color:#33403a}
+  .atable code{font-size:12px}
 
   .tip{
     background:linear-gradient(135deg,rgba(22,128,79,.08),rgba(22,128,79,.02));

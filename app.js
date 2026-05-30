@@ -1,23 +1,29 @@
 const escapeHtml = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const inlineFmt = s => escapeHtml(s)
+  .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+  .replace(/`([^`]+?)`/g,'<code>$1</code>')
+  .replace(/\[REAL\]/g,'<span class="verdict v-real">จริง</span>')
+  .replace(/\[FAKE\]/g,'<span class="verdict v-fake">มั่ว</span>');
 const fmt = s => {
-  // pull fenced ``` code blocks out first so their whitespace/indentation survive.
+  // pull block-level chunks (code fences, md tables) out first so their layout survives.
   // \x01 sentinel survives escapeHtml + the inline replaces and never collides with text.
   const blocks = [];
-  s = s.replace(/```\r?\n?([\s\S]*?)```/g, (_, code) => {
-    blocks.push(code.replace(/\r?\n$/,''));
-    return `\x01${blocks.length-1}\x01`;
+  const stash = html => `\x01${blocks.push(html)-1}\x01`;
+  s = s.replace(/```\r?\n?([\s\S]*?)```/g,(_,code)=>
+    stash(`<pre class="code">${escapeHtml(code.replace(/\r?\n$/,''))}</pre>`));
+  // markdown tables: header row, |---| separator, then >=1 body rows
+  s = s.replace(/^\|(.+)\|[ \t]*\r?\n\|[ \t:|-]+\|[ \t]*\r?\n((?:\|.*\|[ \t]*\r?\n?)+)/gm,(_,head,body)=>{
+    const cells = r => r.split('|').slice(1,-1).map(c=>inlineFmt(c.trim()));
+    const th = cells('|'+head+'|').map(c=>`<th>${c}</th>`).join('');
+    const trs = body.trimEnd().split(/\r?\n/).map(r=>`<tr>${cells(r).map(c=>`<td>${c}</td>`).join('')}</tr>`).join('');
+    return stash(`<table class="atable"><thead><tr>${th}</tr></thead><tbody>${trs}</tbody></table>`);
   });
-  s = escapeHtml(s)
-    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
-    .replace(/`([^`]+?)`/g,'<code>$1</code>')
-    .replace(/\[REAL\]/g,'<span class="verdict v-real">จริง</span>')
-    .replace(/\[FAKE\]/g,'<span class="verdict v-fake">มั่ว</span>')
-    .replace(/\n\n/g,'</p><p>').replace(/\n/g,'<br>');
-  // restore code blocks as real <pre>, breaking out of the wrapping <p>
-  s = s.replace(/\x01(\d+)\x01/g,(_,i)=>`</p><pre class="code">${escapeHtml(blocks[+i])}</pre><p>`);
+  s = inlineFmt(s).replace(/\n\n/g,'</p><p>').replace(/\n/g,'<br>');
+  // restore blocks, breaking out of the wrapping <p>
+  s = s.replace(/\x01(\d+)\x01/g,(_,i)=>`</p>${blocks[+i]}<p>`);
   return s
-    .replace(/<br>\s*<\/p><pre/g,'</p><pre')
-    .replace(/<\/pre><p>\s*<br>/g,'</pre><p>')
+    .replace(/<br>\s*<\/p>(<pre|<table)/g,'</p>$1')
+    .replace(/(<\/pre>|<\/table>)<p>\s*<br>/g,'$1<p>')
     .replace(/<p>\s*<\/p>/g,'');
 };
 

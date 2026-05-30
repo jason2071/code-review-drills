@@ -28,7 +28,14 @@ appointments(
 - **กันจองซ้อน:** ขั้นต่ำ \`UNIQUE(doctor_id, scheduled_at)\`. ถ้าต้องกัน "ช่วงเวลาทับ" จริงๆ ใช้ Postgres **exclusion constraint** (\`EXCLUDE USING gist\`) บน \`(doctor_id WITH =, tstzrange(...) WITH &&)\`
 - index: \`(doctor_id, scheduled_at)\`, \`(patient_id, scheduled_at)\`
 
-**กับดัก:** อย่าทำ m-to-m doctors↔patients ตรงๆ — การนัดมีคุณสมบัติของตัวมันเอง → ต้องเป็นตารางที่มี PK ของตัวเอง`},
+**กับดัก:** อย่าทำ m-to-m doctors↔patients ตรงๆ — การนัดมีคุณสมบัติของตัวมันเอง → ต้องเป็นตารางที่มี PK ของตัวเอง
+
+**สรุปความสัมพันธ์:**
+
+| ความสัมพันธ์ | ชนิด | ทำด้วย |
+|---|---|---|
+| doctor → appointment | 1-to-m | FK \`appointments.doctor_id\` |
+| patient → appointment | 1-to-m | FK \`appointments.patient_id\` |`},
    {type:"concept", title:"ออกแบบ: ตะกร้าสินค้า → คำสั่งซื้อ",
     code:`โจทย์: ร้านออนไลน์
 - user ใส่สินค้าหลายชิ้นลงตะกร้า ปรับจำนวนได้
@@ -61,7 +68,15 @@ order_items(
 - **composite PK (cart_id, product_id)** → เพิ่มของซ้ำ = UPSERT บวก qty ไม่เกิดแถวซ้ำ
 - **จุดสำคัญ:** \`cart_items\` **ไม่เก็บราคา** (โชว์ราคาสดจาก products) แต่ \`order_items\` **เก็บ unit_price snapshot** — ราคาขึ้นทีหลังยอดเก่าต้องไม่เพี้ยน
 
-**พูด:** "ตะกร้าโชว์ราคาสด แต่พอ checkout ผม freeze ราคาลง order_items ครับ"`},
+**พูด:** "ตะกร้าโชว์ราคาสด แต่พอ checkout ผม freeze ราคาลง order_items ครับ"
+
+**สรุปความสัมพันธ์:**
+
+| ความสัมพันธ์ | ชนิด | ทำด้วย |
+|---|---|---|
+| user → cart / order | 1-to-m | FK |
+| cart ↔ product | n-to-m | \`cart_items\` (qty) |
+| order ↔ product | n-to-m | \`order_items\` (qty, unit_price snapshot) |`},
    {type:"concept", title:"ออกแบบ: ประวัติฉีดวัคซีนสัตว์เลี้ยง",
     code:`โจทย์: ระบบคลินิกสัตว์
 - เจ้าของมีสัตว์เลี้ยงได้หลายตัว
@@ -91,7 +106,16 @@ vaccinations(
 - **"ที่ไหน":** \`clinic_id\` ต่อแถว (แต่ละเข็มฉีดคนละที่ได้)
 - \`dose_number\` + \`UNIQUE(pet, vaccine, dose)\` → ลำดับเข็มชัด ไม่ซ้ำ
 
-**กับดัก:** อย่าเก็บ \`dose1_date, dose2_date, dose3_date\` เป็นคอลัมน์ (ละเมิด 1NF, ตายตัวที่ 3 เข็ม) — แตกเป็นแถวเสมอ`},
+**กับดัก:** อย่าเก็บ \`dose1_date, dose2_date, dose3_date\` เป็นคอลัมน์ (ละเมิด 1NF, ตายตัวที่ 3 เข็ม) — แตกเป็นแถวเสมอ
+
+**สรุปความสัมพันธ์:**
+
+| ความสัมพันธ์ | ชนิด | ทำด้วย |
+|---|---|---|
+| owner → pet | 1-to-m | FK \`pets.owner_id\` |
+| pet → vaccination | 1-to-m | FK \`vaccinations.pet_id\` |
+| vaccine → vaccination | 1-to-m | FK \`vaccinations.vaccine_id\` |
+| clinic → vaccination | 1-to-m | FK \`vaccinations.clinic_id\` |`},
    {type:"concept", title:"ออกแบบ: ภาพยนตร์–นักแสดง (n-to-m + attribute)",
     code:`โจทย์: ฐานข้อมูลหนัง
 - 1 หนังมีนักแสดงหลายคน, 1 นักแสดงเล่นได้หลายหนัง
@@ -113,7 +137,13 @@ movie_cast(
 - \`character_name\` อยู่ที่ junction เพราะขึ้นกับ **คู่** (หนัง+นักแสดง) ไม่ใช่ของหนังหรือนักแสดงฝ่ายเดียว
 - ถ้านักแสดงเล่นได้หลายบทในหนังเดียว → PK ต้องรวม \`character_name\` หรือใช้ surrogate id แทน
 
-**หลัก:** attribute ที่เป็นของ "ความสัมพันธ์" ใส่ junction เสมอ ไม่ยัดเข้าตารางฝั่งใดฝั่งหนึ่ง`},
+**หลัก:** attribute ที่เป็นของ "ความสัมพันธ์" ใส่ junction เสมอ ไม่ยัดเข้าตารางฝั่งใดฝั่งหนึ่ง
+
+**สรุปความสัมพันธ์:**
+
+| ความสัมพันธ์ | ชนิด | ทำด้วย |
+|---|---|---|
+| movie ↔ actor | n-to-m | \`movie_cast\` (character_name) |`},
    {type:"concept", title:"ออกแบบ: สูตรอาหาร–วัตถุดิบ (n-to-m + ปริมาณ)",
     code:`โจทย์: แอปสูตรอาหาร
 - 1 สูตรใช้วัตถุดิบหลายอย่าง, วัตถุดิบ 1 อย่างใช้ได้หลายสูตร
@@ -135,7 +165,13 @@ recipe_ingredients(
 - \`quantity\`/\`unit\` เป็นของคู่ (สูตร+วัตถุดิบ) → อยู่ที่ junction
 - \`ON DELETE CASCADE\` ฝั่ง recipe (ลบสูตร → รายการวัตถุดิบของสูตรหายตาม) แต่ **ฝั่ง ingredient อย่า cascade** — วัตถุดิบใช้ร่วมหลายสูตร ลบไม่ได้ตามใคร
 
-**กับดัก:** อย่าเก็บ "200 กรัม" เป็น string เดียว → แยก \`quantity\` (number) กับ \`unit\` เพื่อคำนวณ/สเกลสูตร (เช่นทำ 2 เท่า) ได้`},
+**กับดัก:** อย่าเก็บ "200 กรัม" เป็น string เดียว → แยก \`quantity\` (number) กับ \`unit\` เพื่อคำนวณ/สเกลสูตร (เช่นทำ 2 เท่า) ได้
+
+**สรุปความสัมพันธ์:**
+
+| ความสัมพันธ์ | ชนิด | ทำด้วย |
+|---|---|---|
+| recipe ↔ ingredient | n-to-m | \`recipe_ingredients\` (quantity, unit) |`},
    {type:"concept", title:"ออกแบบ: user follow user (self-referential n-to-m)",
     code:`โจทย์: โซเชียล
 - user ติดตาม (follow) user คนอื่นได้หลายคน และถูกหลายคน follow ได้
@@ -158,7 +194,13 @@ follows(
 - **มีทิศทาง:** \`(A,B)\` ≠ \`(B,A)\` → one-directional โดยธรรมชาติ
 - query: คนที่ A ตาม → \`WHERE follower_id = A\` · คนที่ตาม A → \`WHERE followee_id = A\` → ต้อง index **ทั้งสองคอลัมน์**
 
-**หลัก:** self n-to-m = junction FK สองช่อง ชี้ตารางเดิม + ตั้งชื่อบทบาทให้ชัด (follower/followee)`},
+**หลัก:** self n-to-m = junction FK สองช่อง ชี้ตารางเดิม + ตั้งชื่อบทบาทให้ชัด (follower/followee)
+
+**สรุปความสัมพันธ์:**
+
+| ความสัมพันธ์ | ชนิด | ทำด้วย |
+|---|---|---|
+| user ↔ user | n-to-m (self, มีทิศ) | \`follows\` (follower_id, followee_id) |`},
    {type:"concept", title:"ออกแบบ: ระบบสิทธิ์ RBAC (n-to-m ซ้อนชั้น)",
     code:`โจทย์: ระบบสิทธิ์ (RBAC)
 - user มีได้หลาย role, role มีได้หลาย user
@@ -186,7 +228,14 @@ role_permissions(
 - สิทธิ์จริงของ user = JOIN \`users → user_roles → role_permissions → permissions\`
 - **ไม่ผูก permission ตรงกับ user** (ให้ผ่าน role) → เปลี่ยนสิทธิ์ที่ role ทีเดียว กระทบทุกคนใน role
 
-**หลัก:** n-to-m หลายชั้น = junction หลายตัวต่อกัน ห้ามยุบรวมเป็นตารางเดียว`}
+**หลัก:** n-to-m หลายชั้น = junction หลายตัวต่อกัน ห้ามยุบรวมเป็นตารางเดียว
+
+**สรุปความสัมพันธ์:**
+
+| ความสัมพันธ์ | ชนิด | ทำด้วย |
+|---|---|---|
+| user ↔ role | n-to-m | \`user_roles\` |
+| role ↔ permission | n-to-m | \`role_permissions\` |`}
   ]
 }
 );
