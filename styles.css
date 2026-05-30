@@ -25,7 +25,7 @@
     font-family:'Outfit',sans-serif;font-weight:400;line-height:1.6;
     -webkit-font-smoothing:antialiased;
   }
-  .layout{display:grid;grid-template-columns:300px 1fr;min-height:100vh}
+  .layout{display:grid;grid-template-columns:300px minmax(0,1fr);min-height:100vh}
 
   aside{
     position:sticky;top:0;height:100vh;overflow-y:auto;
@@ -118,7 +118,7 @@
 
   .menu-btn{display:none}
   @media(max-width:860px){
-    .layout{grid-template-columns:1fr}
+    .layout{grid-template-columns:minmax(0,1fr)}
     aside{position:fixed;z-index:50;width:288px;left:-310px;transition:.25s;box-shadow:var(--shadow)}
     aside.open{left:0}
     main{padding:74px 20px 70px}
