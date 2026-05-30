@@ -573,7 +573,105 @@ status TEXT NOT NULL CHECK (status IN ('pending','paid','shipped','cancelled'))
 
 3. **Lookup table** (\`order_statuses\` + FK) — ยืดหยุ่นสุด เพิ่ม metadata ได้ (label, สี, ลำดับ) เหมาะถ้าสถานะมีข้อมูลพ่วงหรือเปลี่ยนบ่อย แต่ต้อง JOIN
 
-**คำตอบที่ดี:** "ถ้าค่าคงที่ไม่ค่อยเปลี่ยน ผมใช้ VARCHAR + CHECK ครับ อ่านง่ายและ flexible สุด ถ้าสถานะต้องมี metadata (label/ลำดับ/แปลภาษา) ค่อยแยกเป็น lookup table" — โชว์ trade-off`}
+**คำตอบที่ดี:** "ถ้าค่าคงที่ไม่ค่อยเปลี่ยน ผมใช้ VARCHAR + CHECK ครับ อ่านง่ายและ flexible สุด ถ้าสถานะต้องมี metadata (label/ลำดับ/แปลภาษา) ค่อยแยกเป็น lookup table" — โชว์ trade-off`},
+   {type:"find", title:"normalize ให้ถึง 3NF",
+    code:`-- ตารางนี้ผิดหลัก normalize ตรงไหน?
+orders (
+  id, customer_id, customer_name, customer_email,
+  product_id, product_name, product_price, qty
+)`,
+    answer:`**ละเมิด 3NF + ปนหลาย entity**
+
+1. **transitive dependency** — \`customer_name\`/\`customer_email\` ขึ้นกับ \`customer_id\` ไม่ใช่ PK (\`id\`) → ข้อมูลลูกค้าซ้ำทุกแถว, **update anomaly** (เปลี่ยนชื่อต้องแก้หลายที่)
+2. \`product_name\`/\`product_price\` ขึ้นกับ \`product_id\` เช่นกัน
+3. 1 order มีได้หลาย product → ตารางนี้ยัดรวมกัน ต้องแตก \`order_items\`
+
+แก้ — แยกตาม entity:
+\`\`\`
+customers(id, name, email)
+products(id, name, price)
+orders(id, customer_id, created_at)
+order_items(order_id, product_id, qty, unit_price)
+\`\`\`
+**ทริค:** non-key ทุกคอลัมน์ต้องขึ้นกับ "the key, the whole key, nothing but the key"
+
+**ข้อยกเว้นจงใจ:** \`order_items.unit_price\` เก็บ **snapshot ราคา ณ เวลาสั่ง** (denormalize ตั้งใจ) — ไม่ใช่ดึงจาก \`products.price\` สด เพราะราคาเปลี่ยนทีหลังจะทำให้ยอดเก่าเพี้ยน`},
+   {type:"concept", title:"primary key: natural, surrogate, หรือ composite?",
+    code:`-- users มี email (unique) อยู่แล้ว
+-- ใช้ email เป็น PK เลยดีไหม? หรือต้องมี id แยก?`,
+    answer:`**default: surrogate key** (\`id BIGINT GENERATED ALWAYS AS IDENTITY\` หรือ UUID) + \`UNIQUE\` บน email แยก
+
+- **natural key (email) เป็น PK** ปัญหา: ค่าเปลี่ยนได้ → ต้อง cascade FK ทุกตารางที่อ้าง, PK กว้าง index ใหญ่ join ช้า, leak email ไปอยู่ในทุก FK
+- **surrogate**: คงที่ตลอด แคบ join เร็ว — ส่วน uniqueness ของ email ยัง enforce ด้วย \`UNIQUE\` ได้
+- **composite PK**: เหมาะกับ junction table (\`student_id, course_id\`) ที่ไม่มี identity ของตัวเอง
+
+UUID vs BIGINT: UUID ดีตอน distributed / กันเดา id แต่ใหญ่กว่า + random ทำ index fragment → ใช้ **UUIDv7/ULID** (เรียงตามเวลา) ลดปัญหาได้
+
+**พูด:** "ผมใช้ surrogate id เป็น PK ครับ แล้ว UNIQUE บน email — กัน PK เปลี่ยนค่าและ join เร็ว"`},
+   {type:"find", title:"วาง foreign key ผิดฝั่ง (1-to-many)",
+    code:`-- 1 user มีได้หลาย post
+CREATE TABLE users (
+  id      BIGINT PRIMARY KEY,
+  post_id BIGINT REFERENCES posts(id)
+);
+CREATE TABLE posts (
+  id    BIGINT PRIMARY KEY,
+  title TEXT
+);`,
+    answer:`**1 จุด: FK วางผิดฝั่ง → กลายเป็น 1-to-1**
+
+\`users.post_id\` ทำให้ user อ้างได้แค่ **1 post เดียว** = บังคับเป็น 1-to-1 ผิด requirement (1 user หลาย post)
+
+**1-to-many: FK อยู่ฝั่ง "many" (ลูก) เสมอ** → ย้ายไป \`posts.user_id\`
+\`\`\`
+CREATE TABLE posts (
+  id      BIGINT PRIMARY KEY,
+  user_id BIGINT NOT NULL REFERENCES users(id),
+  title   TEXT
+);
+-- users ไม่เก็บอะไรเพิ่ม
+CREATE INDEX idx_posts_user ON posts(user_id);
+\`\`\`
+**หลัก:** FK อยู่ฝั่ง many เสมอ · ฝั่ง one ไม่ถือ key ของอีกฝั่ง`},
+   {type:"find", title:"foreign key ไม่ตั้ง ON DELETE + ไม่ index",
+    code:`CREATE TABLE order_items (
+  id       BIGINT PRIMARY KEY,
+  order_id BIGINT REFERENCES orders(id),
+  sku      TEXT
+);`,
+    answer:`**2 จุด**
+
+1. **ไม่กำหนด ON DELETE** → default \`NO ACTION\` (RESTRICT) → ลบ \`orders\` ที่ยังมี item ไม่ได้ (error). ตั้งใจให้ item ตายตาม → \`ON DELETE CASCADE\`; ห้ามลบ parent ที่มีลูก → \`RESTRICT\` (ระบุชัดดีกว่าปล่อย default ให้คนอ่านงง)
+2. **ไม่ index FK column** — Postgres **ไม่** สร้าง index ให้ FK อัตโนมัติ → ลบ/อัปเดต parent ต้อง scan child ทั้งตาราง, JOIN ช้า
+
+\`\`\`
+CREATE TABLE order_items (
+  id       BIGINT PRIMARY KEY,
+  order_id BIGINT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  sku      TEXT
+);
+CREATE INDEX idx_order_items_order ON order_items(order_id);
+\`\`\`
+**หลัก:** ทุก FK → ตั้ง ON DELETE ให้ชัด + index คอลัมน์ FK เอง (Postgres ไม่ทำให้)`},
+   {type:"judge", title:"เก็บ tags ของ post (n-to-m)",
+    code:`-- post มีได้หลาย tag, tag อยู่ได้หลาย post
+-- posts(id, title)   tags ???`,
+    ai:`เก็บง่ายๆ เพิ่มคอลัมน์ tags TEXT ใน posts เก็บเป็น comma เช่น 'go,db,web' พอ ไม่ต้องสร้างตารางเพิ่มให้ยุ่งยาก เวลาค้นก็ WHERE tags LIKE '%go%' เอา`,
+    answer:`**[FAKE] ทั้งหมด — classic anti-pattern**
+
+- comma string ละเมิด **1NF** (ค่าต้อง atomic) → \`LIKE '%go%'\` **index ไม่ติด** scan ทั้งตาราง และ **match ผิด** (tag \`'golang'\` โดน \`'%go%'\` ด้วย)
+- นับ/กรอง/JOIN ตาม tag ทำไม่สะอาด, ไม่มี FK บังคับว่า tag มีจริง, แก้ชื่อ tag ต้องไล่ string ทุกแถว
+
+**ที่ถูก (n-to-m) = junction table:**
+\`\`\`
+tags(id, name TEXT UNIQUE)
+post_tags(
+  post_id INT REFERENCES posts(id) ON DELETE CASCADE,
+  tag_id  INT REFERENCES tags(id),
+  PRIMARY KEY (post_id, tag_id)
+)
+\`\`\`
+**ข้อยกเว้น:** ถ้า tag ไม่ต้องเป็น entity (ไม่มี metadata) บน Postgres ใช้ \`TEXT[]\` + **GIN index** ก็ได้ — แต่ comma ยัดใน \`TEXT\` เดียวผิดเสมอ`}
   ]
 },
 {
