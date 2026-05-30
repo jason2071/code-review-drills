@@ -1,6 +1,6 @@
 DATA.push(
 {
-  group:"Backend", cat:"db-modeling", title:"DB · ออกแบบจากโจทย์",
+  group:"Backend", cat:"db-modeling", title:"DB · Data Modeling",
   desc:"อ่านโจทย์ธุรกิจ → ออกแบบตาราง: แยก entity, เลือก PK/FK, 1-to-m, n-to-m (junction), เก็บ attribute ของความสัมพันธ์ — เน้นวิธีคิดเป็นขั้น",
   problems:[
    {type:"concept", title:"ออกแบบ: หมอ–คนไข้–นัดตรวจ",
