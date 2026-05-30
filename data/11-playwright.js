@@ -103,7 +103,40 @@ test.use({ storageState: 'auth.json' });
 1. [FAKE] **ไม่ต้อง \`waitForSelector\` ก่อน** — \`expect(locator).toBeVisible()\` มี **auto-wait/retry ในตัว** มันจะรอจน element โผล่และมองเห็น (หรือ timeout) เอง ใส่ waitForSelector เพิ่ม = ซ้ำซ้อน
 2. [FAKE] \`toBeVisible\` **มี retry อยู่แล้ว** ตาม default timeout (5 วิ) ไม่ต้องใส่เอง (จะ override ก็ได้แต่ไม่ "ต้อง")
 
-**บทเรียน:** จุดแข็งของ Playwright คือ web-first assertion ที่ auto-wait — AI ที่แนะนำให้ใส่ wait เพิ่มแสดงว่าไม่เข้าใจ retry model เทสต์ที่ดีพึ่ง auto-wait ไม่ใช่ wait มือ`}
+**บทเรียน:** จุดแข็งของ Playwright คือ web-first assertion ที่ auto-wait — AI ที่แนะนำให้ใส่ wait เพิ่มแสดงว่าไม่เข้าใจ retry model เทสต์ที่ดีพึ่ง auto-wait ไม่ใช่ wait มือ`},
+   {type:"find", title:"test.only หลุดขึ้น CI",
+    code:`test.only('checkout flow', async ({ page }) => { /* ... */ });
+test('login',  async ({ page }) => { /* ... */ });
+test('signup', async ({ page }) => { /* ... */ });`,
+    answer:`**\`test.only\` ทำให้รัน "เทสต์เดียว" — เทสต์อื่นถูกข้ามเงียบ**
+
+\`.only\` ดีตอน dev (focus 1 เทสต์) แต่ถ้าหลุดขึ้น CI → \`login\`/\`signup\` ไม่ถูกรันเลย CI ยังขึ้นเขียว → false sense of safety
+
+แก้:
+- ลบ \`.only\` ก่อน commit
+- กันด้วย config:
+\`\`\`
+// playwright.config.ts
+export default defineConfig({
+  forbidOnly: !!process.env.CI,   // เจอ .only บน CI → fail ทันที
+});
+\`\`\`
+**หลัก:** เปิด \`forbidOnly\` บน CI เสมอ · \`.only\`/\`.skip\` หลุด = coverage หายแบบเงียบ`},
+   {type:"find", title:"รอ networkidle กับหน้าที่ poll ตลอด",
+    code:`await page.goto('/dashboard', { waitUntil: 'networkidle' });
+await expect(page.locator('.total')).toBeVisible();`,
+    answer:`**\`networkidle\` เปราะ/ค้างกับหน้าที่มี polling / websocket / analytics**
+
+\`networkidle\` = รอจน "ไม่มี network เคลื่อนไหว 500ms" · dashboard ที่ poll เป็นจังหวะ / มี websocket / โหลด ad → network ไม่เคยนิ่ง → timeout หรือช้าและ flaky
+
+รอ **สถานะจริงที่ต้องการ** ไม่ใช่ network:
+\`\`\`
+await page.goto('/dashboard');
+await expect(page.locator('.total')).toBeVisible();  // web-first auto-wait
+\`\`\`
+(Playwright แนะนำให้เลิกใช้ \`networkidle\` ด้วยเหตุผลนี้)
+
+**หลัก:** อย่าใช้ \`networkidle\` เป็น proxy ของ "โหลดเสร็จ" → รอ element/assertion ที่หมายถึงพร้อมจริง`}
   ]
 }
 );

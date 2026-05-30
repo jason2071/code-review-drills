@@ -106,7 +106,44 @@ function Price({ amount }) {
 1. [FAKE] **ไม่ควรห่อทุก function ด้วย useCallback** — มันมีต้นทุน (จำ dependency, เทียบทุก render) ถ้าไม่ได้ส่งลง child ที่ memo ไว้ หรือไม่ใช่ dep ของ effect → useCallback เปล่าประโยชน์ ในเคสนี้ button ธรรมดาจะไม่ใช้ก็ได้
 2. [FAKE] \`name\` เป็น string (primitive) — useMemo ครอบ primitive ไม่มีประโยชน์ useMemo ไว้ memo "ผลการคำนวณหนัก" หรือ "object/array reference" ไม่ใช่ string
 
-**บทเรียน:** AI ชอบแนะนำ useCallback/useMemo พร่ำเพรื่อว่า "เพื่อ performance" จริงๆ ใส่มั่วทำให้ช้า+โค้ดรก ใช้เมื่อมีเหตุผลจริง (ส่งลง memoized child, dep ของ effect, คำนวณหนัก) เท่านั้น`}
+**บทเรียน:** AI ชอบแนะนำ useCallback/useMemo พร่ำเพรื่อว่า "เพื่อ performance" จริงๆ ใส่มั่วทำให้ช้า+โค้ดรก ใช้เมื่อมีเหตุผลจริง (ส่งลง memoized child, dep ของ effect, คำนวณหนัก) เท่านั้น`},
+   {type:"find", title:"key={index} ใน list ที่ลบ/เรียงได้",
+    code:`{items.map((item, i) => (
+  <input key={i} defaultValue={item.name} />
+))}
+// ลบ item ตัวแรก → ค่าใน input เลื่อนผิดตัว`,
+    answer:`**\`key={index}\` กับ list ที่ลบ/แทรก/เรียง → state ผูกผิด element**
+
+React ใช้ key จับคู่ element ข้าม render · index ไม่ใช่ identity ของข้อมูล — ลบตัวแรก index ทุกตัวเลื่อน → React reuse DOM/state เดิมผิดตัว (ค่าใน \`<input>\`, focus, component state เพี้ยน)
+
+\`\`\`
+{items.map(item => (
+  <input key={item.id} defaultValue={item.name} />
+))}
+\`\`\`
+\`index\` พอใช้ได้เฉพาะ list ที่ static — ไม่ลบ/ไม่เรียง/ไม่แทรก
+
+**หลัก:** \`key\` = identity ของข้อมูล (id ที่เสถียร) ไม่ใช่ตำแหน่ง (index)`},
+   {type:"find", title:"useEffect ขาด dependency",
+    code:`function Search({ query }) {
+  const [results, setResults] = useState([]);
+  useEffect(() => {
+    fetchResults(query).then(setResults);
+  }, []);   // []
+  return <List items={results} />;
+}`,
+    answer:`**\`[]\` → effect รันครั้งเดียวตอน mount ไม่ตามเมื่อ \`query\` เปลี่ยน**
+
+ค้นด้วย \`query\` แรกแล้วค้าง · พิมพ์ค้นใหม่ก็ไม่ re-fetch → ผลลัพธ์ไม่อัปเดต (stale)
+
+\`\`\`
+useEffect(() => {
+  let active = true;
+  fetchResults(query).then(r => { if (active) setResults(r); });
+  return () => { active = false; };   // กัน race ของ response เก่า
+}, [query]);
+\`\`\`
+**หลัก:** ใส่ทุกค่าที่ effect อ่านลง dep array (lint \`react-hooks/exhaustive-deps\`) + cleanup กัน response มาสลับลำดับ`}
   ]
 }
 );

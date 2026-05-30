@@ -95,7 +95,38 @@ CREATE INDEX idx_users_status_email ON users(status, email);
 
 2. [FAKE] Postgres ทำ **bitmap index scan** รวม 2 index ได้ก็จริง แต่ "เต็มประสิทธิภาพ" เกินจริง — มันช้ากว่า composite index ตัวเดียวที่ตรงงาน เพราะต้องรวม bitmap เพิ่มขั้นตอน
 
-**บทเรียน:** index เยอะ ≠ ดี · query หลายคอลัมน์พร้อมกัน → คิดถึง composite ก่อน · index ทุกตัวมีต้นทุนตอน write`}
+**บทเรียน:** index เยอะ ≠ ดี · query หลายคอลัมน์พร้อมกัน → คิดถึง composite ก่อน · index ทุกตัวมีต้นทุนตอน write`},
+   {type:"find", title:"ใส่ function บน column ใน WHERE",
+    code:`-- มี index บน created_at
+SELECT * FROM orders
+WHERE DATE(created_at) = '2024-01-01';`,
+    answer:`**function บน column → index ใช้ไม่ได้ (non-sargable)**
+
+\`DATE(created_at)\` ต้องคำนวณทุกแถวก่อนเทียบ → planner ใช้ index บน \`created_at\` ไม่ได้ → seq scan ทั้งตาราง
+
+เขียนเป็น **range** ให้ index ทำงาน:
+\`\`\`
+WHERE created_at >= '2024-01-01'
+  AND created_at <  '2024-01-02';
+\`\`\`
+(เคสจำเป็นต้องแปลงจริง → ทำ expression index: \`CREATE INDEX ... ON orders ((created_at::date))\`)
+
+**หลัก:** อย่าห่อ column ด้วย function/cast ใน WHERE → เขียนเป็นช่วง (range) แทน index ถึงติด`},
+   {type:"find", title:"นับ order ด้วย COUNT(column)",
+    code:`-- อยากนับจำนวน order ทั้งหมด
+SELECT COUNT(discount_code) FROM orders;`,
+    answer:`**\`COUNT(column)\` ข้ามแถวที่ column นั้นเป็น NULL**
+
+order ที่ \`discount_code IS NULL\` (ไม่ใช้คูปอง) จะไม่ถูกนับ → ได้น้อยกว่าจำนวน order จริง
+
+\`\`\`
+SELECT COUNT(*) FROM orders;   -- นับทุกแถว (ที่ถูก)
+\`\`\`
+- \`COUNT(*)\` — นับทุกแถว ไม่สน NULL
+- \`COUNT(col)\` — นับเฉพาะแถวที่ \`col\` ไม่ใช่ NULL
+- \`COUNT(DISTINCT col)\` — นับค่าไม่ซ้ำ (ไม่รวม NULL)
+
+**หลัก:** นับ "จำนวนแถว" → \`COUNT(*)\` เสมอ · \`COUNT(col)\` ใช้เมื่อตั้งใจข้าม NULL`}
   ]
 }
 );

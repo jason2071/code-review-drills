@@ -76,7 +76,35 @@ implementation: key \`ratelimit:{user}\` + \`INCR\`+\`EXPIRE\` หรือ sort
 5. **CDN** หน้าไฟล์ที่อ่านบ่อย
 
 **กุญแจ:** presigned URL + object storage + async processing — โชว์ว่ารู้ว่าไฟล์ใหญ่ไม่ควรผ่าน app/DB
-(เชื่อมกับงาน OBS→Postgres ที่ทำอยู่ได้พอดี)`}
+(เชื่อมกับงาน OBS→Postgres ที่ทำอยู่ได้พอดี)`},
+   {type:"concept", title:"hot key หมดอายุพร้อมกัน (cache stampede)",
+    code:`// key ยอดฮิตใน cache หมดอายุพร้อมกัน
+// → ทุก request เห็น miss พร้อมกัน → ยิง DB ถล่มทีเดียว`,
+    answer:`**cache stampede / thundering herd — cache miss พร้อมกันทุก request → rebuild ซ้ำ + ถล่ม DB**
+
+แก้ (เลือกผสม):
+1. **single-flight / lock** — ให้ request เดียว rebuild ที่เหลือรอผลเดียวกัน (Go มี \`golang.org/x/sync/singleflight\`)
+2. **jittered TTL** — สุ่ม TTL ±10% ไม่ให้ key หมดพร้อมกัน
+3. **stale-while-revalidate** — คืนค่าเก่าระหว่าง rebuild เบื้องหลัง ไม่ให้ผู้ใช้รอ
+4. **pre-warm** key สำคัญก่อนหมดอายุ
+
+**คำตอบที่ดี:** "ผมกัน stampede ด้วย single-flight + jitter TTL ครับ key ฮิตเพิ่ม stale-while-revalidate ให้ผู้ใช้ไม่รอ rebuild"`},
+   {type:"concept", title:"service ปลายทางล่ม → retry ยังไงไม่ให้ซ้ำเติม",
+    code:`// service B ล่มชั่วคราว → A retry ทันทีถี่ๆ ทุก client
+// → B เพิ่งจะฟื้นก็โดนถล่มซ้ำ (retry storm)`,
+    answer:`**retry ดิบๆ ทำ B พังหนักกว่าเดิม (retry storm / cascading failure)**
+
+retry ทันทีถี่ๆ พร้อมกันทุก client → B ที่กำลังจะฟื้นโดนถล่มซ้ำจนล่มต่อ
+
+แก้ — retry ต้องมี 4 อย่างเสมอ:
+1. **exponential backoff** — รอ 1s, 2s, 4s, 8s เพิ่มเป็นเท่าตัว
+2. **+ jitter** — สุ่มเวลานิดหน่อย กัน client ทุกตัว retry พร้อมกัน (synchronized retry)
+3. **cap จำนวน retry** — ไม่ retry ไม่จำกัด
+4. **circuit breaker** — ถ้า B ล่มต่อเนื่อง ตัดวงจรหยุดยิงชั่วคราว ให้เวลา B ฟื้น
+
++ retry เฉพาะ error ที่ retry ได้ (timeout/5xx ไม่ใช่ 4xx)
+
+**หลัก:** retry = backoff + jitter + cap + circuit breaker · ไม่ใช่ retry ดิบทันที`}
   ]
 }
 );

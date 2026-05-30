@@ -235,7 +235,79 @@ role_permissions(
 | ความสัมพันธ์ | ชนิด | ทำด้วย |
 |---|---|---|
 | user ↔ role | n-to-m | \`user_roles\` |
-| role ↔ permission | n-to-m | \`role_permissions\` |`}
+| role ↔ permission | n-to-m | \`role_permissions\` |`},
+   {type:"concept", title:"ออกแบบ: จองห้องโรงแรม (กันช่วงวันทับ)",
+    code:`โจทย์: ระบบจองโรงแรม
+- โรงแรมมีหลายห้อง, 1 ห้องถูกจองได้หลายครั้ง (คนละช่วงวัน)
+- ห้ามจองห้องเดียวกันในช่วงวันที่ทับกัน
+ออกแบบตารางยังไง?`,
+    answer:`**booking มีช่วงวัน → 1-to-m + กันช่วงทับด้วย exclusion constraint**
+
+\`\`\`
+hotels(id PK, name)
+rooms(id PK, hotel_id FK -> hotels(id), number)
+guests(id PK, name)
+bookings(
+  id       PK,
+  room_id  FK -> rooms(id),
+  guest_id FK -> guests(id),
+  period   DATERANGE NOT NULL,
+  status   TEXT CHECK (status IN ('held','confirmed','cancelled')),
+  EXCLUDE USING gist (room_id WITH =, period WITH &&)
+)
+\`\`\`
+- \`room → booking\` = 1-to-m
+- **กันจองทับ:** Postgres exclusion constraint — ห้ามมี 2 booking ที่ \`room_id\` เดียวกัน + ช่วง \`period\` **ทับกัน** (\`&&\`) ต้องเปิด extension \`btree_gist\`
+- เช็คฝั่ง app อย่างเดียว **ไม่พอ** — สองคนจองพร้อมกัน (race) → ต้องบังคับที่ DB
+
+**สรุปความสัมพันธ์:**
+
+| ความสัมพันธ์ | ชนิด | ทำด้วย |
+|---|---|---|
+| hotel → room | 1-to-m | FK \`rooms.hotel_id\` |
+| room → booking | 1-to-m | FK + \`EXCLUDE\` กันช่วงทับ |
+| guest → booking | 1-to-m | FK \`bookings.guest_id\` |
+
+**หลัก:** กัน "ช่วงเวลาทับ" = exclusion constraint ที่ DB · ไม่ใช่เช็คใน app (race)`},
+   {type:"concept", title:"ออกแบบ: แชต (ห้องกลุ่ม + อ่านถึงไหน)",
+    code:`โจทย์: ระบบแชต
+- user คุยกันเป็นห้อง (conversation) มีได้หลายคน (กลุ่ม)
+- 1 user อยู่ได้หลาย conversation
+- เก็บข้อความ + รู้ว่าใครอ่านถึงไหนแล้ว
+ออกแบบตารางยังไง?`,
+    answer:`**conversation ↔ user = n-to-m (members) · message = 1-to-m ของ conversation**
+
+\`\`\`
+users(id PK, name)
+conversations(id PK, title, created_at)
+conversation_members(
+  conversation_id FK -> conversations(id),
+  user_id         FK -> users(id),
+  joined_at       TIMESTAMPTZ,
+  last_read_at    TIMESTAMPTZ,
+  PRIMARY KEY (conversation_id, user_id)
+)
+messages(
+  id              PK,
+  conversation_id FK -> conversations(id),
+  sender_id       FK -> users(id),
+  body            TEXT,
+  sent_at         TIMESTAMPTZ
+)
+\`\`\`
+- **อ่านถึงไหน:** \`last_read_at\` อยู่ที่ junction (เป็นของคู่ user+conversation) → unread = messages ที่ \`sent_at > last_read_at\`
+- 1-to-1 chat = conversation ที่มีสมาชิก 2 คน (ไม่ต้องตารางแยก)
+- index \`messages(conversation_id, sent_at)\` สำหรับดึงประวัติ
+
+**สรุปความสัมพันธ์:**
+
+| ความสัมพันธ์ | ชนิด | ทำด้วย |
+|---|---|---|
+| user ↔ conversation | n-to-m | \`conversation_members\` (last_read_at) |
+| conversation → message | 1-to-m | FK \`messages.conversation_id\` |
+| user → message (ผู้ส่ง) | 1-to-m | FK \`messages.sender_id\` |
+
+**หลัก:** สถานะของ "คู่" (อ่านถึงไหน) เก็บที่ junction · message อ้าง conversation ไม่ใช่คู่ user`}
   ]
 }
 );

@@ -110,7 +110,56 @@ if errors.Is(err, sql.ErrNoRows) {
 
 2. [FAKE] \`strconv.Atoi(s)\` จริงๆ **เรียก \`ParseInt(s, 10, 0)\` ข้างใน** — มันคือ wrapper ตัวเดียวกัน ไม่มีเรื่อง performance ต่างกัน AI มั่ว
 
-**บทเรียน:** ระวังคำแนะนำที่ "ถูกเป็นหลักการ" แต่ไม่ดูบริบท (ข้อ 1) และคำอ้าง performance ลอยๆ ที่ไม่จริง (ข้อ 2)`}
+**บทเรียน:** ระวังคำแนะนำที่ "ถูกเป็นหลักการ" แต่ไม่ดูบริบท (ข้อ 1) และคำอ้าง performance ลอยๆ ที่ไม่จริง (ข้อ 2)`},
+   {type:"find", title:"loop rows แต่ไม่เช็ค rows.Err()",
+    code:`rows, _ := db.Query("SELECT id FROM users")
+defer rows.Close()
+var ids []int
+for rows.Next() {
+\tvar id int
+\trows.Scan(&id)
+\tids = append(ids, id)
+}
+return ids, nil`,
+    answer:`**2 จุด (ข้อมูลขาดแบบเงียบ)**
+
+1. **ไม่เช็ค \`rows.Err()\` หลัง loop** — \`rows.Next()\` คืน \`false\` ทั้งตอนจบปกติ **และ** ตอนเกิด error กลางทาง (network/decode) → ได้ผลไม่ครบโดยไม่มีสัญญาณ
+2. ทิ้ง error จาก \`Query\` และ \`Scan\`
+
+\`\`\`
+rows, err := db.Query(...)
+if err != nil { return nil, err }
+defer rows.Close()
+for rows.Next() {
+    var id int
+    if err := rows.Scan(&id); err != nil { return nil, err }
+    ids = append(ids, id)
+}
+if err := rows.Err(); err != nil { return nil, err }  // สำคัญ
+\`\`\`
+**หลัก:** \`for rows.Next()\` ต้องตามด้วย \`rows.Err()\` เสมอ · loop จบ ≠ สำเร็จ`},
+   {type:"find", title:"recover panic ใน goroutine",
+    code:`func Safe() {
+\tdefer func() { recover() }()
+\tgo func() {
+\t\tpanic("boom")   // กู้ได้ไหม?
+\t}()
+\ttime.Sleep(time.Second)
+}`,
+    answer:`**\`recover\` ไม่ข้าม goroutine → panic ใน goroutine ลูกทำ crash ทั้ง process**
+
+\`defer recover()\` ของ \`Safe\` กู้ได้แค่ panic ที่เกิดใน **goroutine เดียวกัน** · panic ใน \`go func()\` ไม่ผ่าน defer ตัวนั้น → โปรแกรมตายทั้งโปรเซส
+
+\`recover\` ต้องอยู่ใน goroutine ที่ panic เกิดเอง:
+\`\`\`
+go func() {
+    defer func() {
+        if r := recover(); r != nil { log.Println("recovered:", r) }
+    }()
+    panic("boom")
+}()
+\`\`\`
+**หลัก:** ทุก goroutine ที่รับงานภายนอก → ใส่ defer recover ของตัวเอง · panic ข้าม goroutine กู้ไม่ได้`}
   ]
 }
 );

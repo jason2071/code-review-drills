@@ -141,7 +141,60 @@ func GetConfig() *Config {
 
 2. ส่วนใหญ่ [FAKE] ในเคสนี้ — \`once.Do\` มี memory barrier ในตัว เขียน \`cfg\` เสร็จก่อน Do return ทุก goroutine ที่ผ่าน \`once.Do\` จะเห็นค่า \`cfg\` ที่ถูกต้อง (ตราบใดที่ไม่มีใครเขียน \`cfg\` ที่อื่นอีก)
 
-**บทเรียน:** \`sync.Once\` เป็น primitive ที่ thread-safe ในตัว AI มั่วบ่อยว่า "ต้องใส่ mutex เพิ่ม" กับของที่ปลอดภัยอยู่แล้ว`}
+**บทเรียน:** \`sync.Once\` เป็น primitive ที่ thread-safe ในตัว AI มั่วบ่อยว่า "ต้องใส่ mutex เพิ่ม" กับของที่ปลอดภัยอยู่แล้ว`},
+   {type:"find", title:"เขียน map พร้อมกันหลาย goroutine",
+    code:`m := map[int]int{}
+var wg sync.WaitGroup
+for i := 0; i < 100; i++ {
+\twg.Add(1)
+\tgo func(i int) { defer wg.Done(); m[i] = i }(i)
+}
+wg.Wait()`,
+    answer:`**concurrent map writes → \`fatal error\` (กู้ไม่ได้)**
+
+map ใน Go **ไม่** ปลอดภัยต่อการเขียนพร้อมกัน → runtime ตรวจเจอแล้ว crash ทั้ง process (\`fatal error: concurrent map writes\`) — ไม่ใช่ panic ที่ \`recover\` ได้
+
+\`\`\`
+var mu sync.Mutex
+go func(i int) {
+    defer wg.Done()
+    mu.Lock(); m[i] = i; mu.Unlock()
+}(i)
+// หรือ sync.Map (เคส key กระจาย เขียนเยอะ)
+\`\`\`
+รันด้วย \`go test -race\` จับเจอ
+
+**หลัก:** แชร์ map ข้าม goroutine ต้อง lock เสมอ · \`-race\` คือเพื่อน`},
+   {type:"find", title:"goroutine leak (ไม่มีทางออก)",
+    code:`func Worker(jobs <-chan int) {
+\tgo func() {
+\t\tfor j := range jobs {
+\t\t\tprocess(j)
+\t\t}
+\t}()
+}
+// เรียกบ่อยๆ แต่สั่งหยุดไม่ได้`,
+    answer:`**goroutine leak — ไม่มีทางยกเลิก**
+
+ถ้าไม่ปิด \`jobs\` channel goroutine จะวน \`range\` ค้างตลอด ไม่ตาย → ทุกครั้งที่เรียก \`Worker\` ทิ้ง goroutine ค้างไว้สะสม
+
+รับ \`context\` ให้ cancel ได้:
+\`\`\`
+func Worker(ctx context.Context, jobs <-chan int) {
+    go func() {
+        for {
+            select {
+            case <-ctx.Done():
+                return
+            case j, ok := <-jobs:
+                if !ok { return }
+                process(j)
+            }
+        }
+    }()
+}
+\`\`\`
+**หลัก:** goroutine อายุยาวทุกตัวต้องมีทางออก (\`ctx.Done()\` / channel ปิด) ไม่งั้น leak`}
   ]
 }
 );

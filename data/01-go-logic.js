@@ -124,7 +124,39 @@ func processOne(p string) error {
 
 2. [FAKE] ใช้ \`range\` อยู่แล้ว ไม่มี index \`i\` ให้ off-by-one เลย — AI พูดถึงสิ่งที่ไม่มีในโค้ด
 
-**บทเรียน:** อย่ายอมรับ "optimization" ที่ AI เสนอโดยไม่คิด — บางทีของเดิมเหมาะสมแล้ว binary search ดีก็ต่อเมื่อ "เรียงไว้แล้ว + ค้นหลายครั้ง" เท่านั้น`}
+**บทเรียน:** อย่ายอมรับ "optimization" ที่ AI เสนอโดยไม่คิด — บางทีของเดิมเหมาะสมแล้ว binary search ดีก็ต่อเมื่อ "เรียงไว้แล้ว + ค้นหลายครั้ง" เท่านั้น`},
+   {type:"find", title:"แปลง % ด้วย integer division",
+    code:`func Percent(done, total int) int {
+\treturn done / total * 100
+}
+// done=1 total=4 → ได้ 0 ทำไม?`,
+    answer:`**integer division ตัดเศษ + ลำดับผิด**
+
+\`1 / 4\` ใน int = 0 (ตัดเศษทิ้ง) → \`0 * 100\` = 0 หารก่อนคูณทำให้เศษหายหมด
+
+\`\`\`
+return done * 100 / total      // 1*100/4 = 25 (คูณก่อนหาร)
+// ต้องการทศนิยม: float64(done) / float64(total) * 100
+\`\`\`
++ ระวัง \`total == 0\` → integer divide by zero → panic
+
+**หลัก:** int division ตัดเศษ — คูณก่อนหาร หรือแปลง \`float64\` ก่อน + เช็คตัวหาร 0`},
+   {type:"find", title:"append แชร์ backing array",
+    code:`a := []int{1, 2, 3}
+b := append(a[:1], 99)
+fmt.Println(a)   // [1 99 3] ?!
+_ = b`,
+    answer:`**append เขียนทับ backing array เดิม**
+
+\`a[:1]\` ยังชี้ array เดียวกับ \`a\` (len=1 แต่ cap ยังเหลือ) → \`append\` เขียน \`99\` ลง index 1 ของ array เดิม → \`a\` กลายเป็น \`[1 99 3]\`
+
+slice = (pointer, len, cap) · การ slice \`[:n]\` ไม่ copy ข้อมูล แค่ขยับ len
+
+\`\`\`
+b := append(a[:1:1], 99)   // a[:1:1] จำกัด cap=1 → append สร้าง array ใหม่
+// หรือ b := append(slices.Clone(a[:1]), 99)
+\`\`\`
+**หลัก:** sub-slice แชร์ backing array · \`append\` อาจเขียนทับของเดิมถ้า cap เหลือ → จำกัด cap (\`[:n:n]\`) หรือ clone`}
   ]
 }
 );

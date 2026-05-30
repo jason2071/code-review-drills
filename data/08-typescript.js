@@ -88,7 +88,42 @@ function format(u: User): string {
 1. [FAKE] \`type\` กับ \`interface\` performance ตอน compile แทบไม่ต่าง เป็นเรื่อง style/feature (type ทำ union/intersection ได้, interface ทำ declaration merging ได้) ไม่ใช่เรื่องความเร็ว
 2. [FAKE] \`u: User\` ไม่ได้เป็น optional (\`u?: User\`) type system รับประกันว่ามีค่าแล้ว ไม่ต้องเช็ค null — ถ้าจะให้รับ null ต้องเขียน type ให้ชัด
 
-**บทเรียน:** AI ชอบยัด "best practice ทั่วไป" (ใช้ interface, เช็ค null) ที่ไม่ตรงบริบท type นี้ non-nullable อยู่แล้ว`}
+**บทเรียน:** AI ชอบยัด "best practice ทั่วไป" (ใช้ interface, เช็ค null) ที่ไม่ตรงบริบท type นี้ non-nullable อยู่แล้ว`},
+   {type:"find", title:"sort ตัวเลขด้วย .sort() เปล่า",
+    code:`const nums = [3, 12, 1, 25];
+nums.sort();
+console.log(nums); // [1, 12, 25, 3] ?!`,
+    answer:`**\`Array.sort()\` แปลงเป็น string เรียงตาม Unicode เป็น default**
+
+ไม่ใส่ comparator → \`sort\` เทียบแบบ string → \`"12" < "3"\` (ตัวอักษร '1' < '3') → ลำดับเพี้ยน
+
+\`\`\`
+nums.sort((a, b) => a - b);   // [1, 3, 12, 25]
+\`\`\`
+- ตัวเลข → \`(a, b) => a - b\`
+- string → \`(a, b) => a.localeCompare(b)\`
+- \`.sort()\` ยัง **mutate array เดิม** ด้วย — อยากได้ใหม่ใช้ \`[...nums].sort(...)\` หรือ \`toSorted()\`
+
+**หลัก:** \`sort()\` ตัวเลขต้องใส่ comparator เสมอ · default = lexicographic + mutate`},
+   {type:"find", title:"as / type assertion โกหก compiler",
+    code:`const el = document.querySelector('.btn') as HTMLButtonElement;
+el.disabled = true;
+
+const user = JSON.parse(raw) as User;
+sendWelcome(user.email);`,
+    answer:`**\`as\` บอก compiler ให้เชื่อ — ไม่ได้ตรวจจริงตอน runtime**
+
+- \`querySelector\` อาจคืน \`null\` · \`as HTMLButtonElement\` ปิดปาก TS แต่ถ้าไม่เจอ element → runtime พัง \`Cannot set 'disabled' of null\`
+- \`JSON.parse(raw) as User\` — ข้อมูลจริงอาจไม่ตรง shape (field หาย/ผิด type) · TS ไม่ช่วยเลย ไปพังตอนใช้ทีหลัง
+
+แก้ — ตรวจจริง:
+\`\`\`
+const el = document.querySelector<HTMLButtonElement>('.btn');
+if (!el) return;                       // narrow จริง
+
+const user = UserSchema.parse(JSON.parse(raw));  // zod validate ตอน runtime
+\`\`\`
+**หลัก:** \`as\` = สัญญาที่ไม่ถูกตรวจ · ข้อมูลจากนอก (DOM/JSON/API) ต้อง validate runtime อย่าใช้ \`as\` ปิดปาก`}
   ]
 }
 );

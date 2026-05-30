@@ -185,7 +185,47 @@ post_tags(
   PRIMARY KEY (post_id, tag_id)
 )
 \`\`\`
-**ข้อยกเว้น:** ถ้า tag ไม่ต้องเป็น entity (ไม่มี metadata) บน Postgres ใช้ \`TEXT[]\` + **GIN index** ก็ได้ — แต่ comma ยัดใน \`TEXT\` เดียวผิดเสมอ`}
+**ข้อยกเว้น:** ถ้า tag ไม่ต้องเป็น entity (ไม่มี metadata) บน Postgres ใช้ \`TEXT[]\` + **GIN index** ก็ได้ — แต่ comma ยัดใน \`TEXT\` เดียวผิดเสมอ`},
+   {type:"find", title:"EAV: เก็บ attribute เป็น key-value",
+    code:`-- เก็บคุณสมบัติสินค้าแบบ "ยืดหยุ่น"
+product_attributes(
+  product_id, attr_name TEXT, attr_value TEXT
+)
+-- (1,'color','red') (1,'size','L') (1,'weight','500')`,
+    answer:`**EAV (Entity-Attribute-Value) — ยืดหยุ่นแต่จ่ายแพงทุกด้าน**
+
+ปัญหา:
+- query ยากมาก (อยากได้สินค้าสีแดง size L ต้อง JOIN/pivot ต่อ attribute)
+- **ไม่มี type** — \`attr_value\` เป็น TEXT หมด (weight ที่ควรเป็นเลขก็เทียบ/บวกไม่ได้)
+- **ไม่มี constraint/FK/NOT NULL** ต่อค่า → ข้อมูลขยะหลุดเข้าง่าย
+- index ยาก ตารางโตเร็ว
+
+ทางเลือกดีกว่าบน Postgres:
+\`\`\`
+-- attribute รู้ล่วงหน้า → คอลัมน์จริง (type + constraint ครบ)
+products(id, name, color TEXT, size TEXT, weight_g INT)
+-- ยืดหยุ่น/sparse จริงๆ → JSONB + GIN index
+products(id, name, attributes JSONB)
+\`\`\`
+**หลัก:** อย่าใช้ EAV ถ้า attribute รู้ล่วงหน้า → คอลัมน์จริง/JSONB ได้ทั้ง query และ integrity`},
+   {type:"concept", title:"เก็บทั้งก้อนใน JSONB ดีไหม?",
+    code:`-- profile มี field เพิ่ม/เปลี่ยนบ่อย เก็บรวมใน JSONB เลยดีไหม?
+user_profiles(user_id, data JSONB)`,
+    answer:`**JSONB เหมาะกับ "ยืดหยุ่น/sparse" — ไม่ใช่ข้ออ้างเลี่ยง schema**
+
+**ใช้ JSONB เมื่อ:** field ไม่แน่นอน/ผู้ใช้กำหนดเอง, sparse, อ่านทั้งก้อน, schema เปลี่ยนบ่อย (ค้นได้ด้วย GIN index)
+
+**ใช้คอลัมน์จริงเมื่อ:** ต้อง \`WHERE\`/index บ่อย, ต้อง constraint (\`NOT NULL\`/\`CHECK\`/\`FK\`), ต้อง JOIN, ต้องการ type safety
+
+**ผสมได้** (นิยมสุด): field สำคัญแยกเป็นคอลัมน์ ส่วนเสริมไว้ JSONB
+\`\`\`
+user_profiles(
+  user_id  BIGINT PRIMARY KEY REFERENCES users(id),
+  email    TEXT NOT NULL,        -- query/unique บ่อย → คอลัมน์
+  prefs    JSONB DEFAULT '{}'    -- ส่วนยืดหยุ่น
+)
+\`\`\`
+**หลัก:** อะไรที่ query/บังคับ/JOIN บ่อย ดึงออกเป็นคอลัมน์ · JSONB ไว้ส่วนที่ยืดหยุ่นจริง`}
   ]
 }
 );
