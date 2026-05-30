@@ -1,0 +1,116 @@
+DATA.push(
+{
+  group:"Backend", cat:"go-error", title:"Go · Error & Resource",
+  desc:"กลืน error, ไม่ปิด resource, ไม่ใช้ ctx, error wrapping, เทียบ error ผิดวิธี — จุดที่ระบบรั่วเงียบๆ",
+  problems:[
+   {type:"find", title:"อ่านไฟล์",
+    code:`func ReadConfig(path string) ([]byte, error) {
+\tf, _ := os.Open(path)
+\tdata, err := io.ReadAll(f)
+\treturn data, err
+}`,
+    answer:`**2 จุด**
+
+1. **กลืน error ตอน Open** — \`f, _ :=\` ถ้าเปิดไม่ได้ \`f\` = nil → \`io.ReadAll(nil)\` panic
+2. **ไม่ปิดไฟล์** — ลืม \`defer f.Close()\` → fd leak
+
+\`\`\`
+f, err := os.Open(path)
+if err != nil { return nil, fmt.Errorf("open config: %w", err) }
+defer f.Close()
+return io.ReadAll(f)
+\`\`\`
+**หลัก:** เปิดอะไร = \`defer Close()\` บรรทัดถัดไป (หลังเช็ค err)`},
+   {type:"judge", title:"ตัดสินคำตอบ AI",
+    code:`func GetTotal(ctx context.Context, userID int) (int, error) {
+\trow := db.QueryRowContext(ctx,
+\t\t"SELECT SUM(amount) FROM orders WHERE user_id = $1", userID)
+\tvar total int
+\trow.Scan(&total)
+\treturn total, nil
+}`,
+    ai:`โค้ดนี้มีปัญหา 3 จุด:\n1. row.Scan(&total) ไม่ได้เช็ค error\n2. SUM(amount) จะคืน NULL ถ้าไม่มี order → scan ลง int จะ error ควรใช้ COALESCE\n3. ลืม defer row.Close() ทำให้ connection leak`,
+    answer:`**ข้อ 1, 2 จริง · ข้อ 3 มั่ว (เนียนสุด)**
+
+1. [REAL] ไม่เช็ค error ของ Scan
+2. [REAL] \`SUM\` คืน NULL เมื่อไม่มีแถว → ใช้ \`COALESCE(SUM(amount), 0)\`
+3. [FAKE] \`QueryRowContext\` คืน \`*sql.Row\` **ไม่มี method \`Close()\`** ใส่แล้ว compile ไม่ผ่าน Scan ปิดให้เอง
+
+\`\`\`
+db.Query()    → *sql.Rows → ต้อง defer rows.Close()
+db.QueryRow() → *sql.Row  → ไม่ต้อง (Scan ปิดให้)
+\`\`\`
+**ทำไมหลอกเนียน:** "connection leak" จริงกับ \`Query\` แต่ไม่ใช่ \`QueryRow\``},
+   {type:"find", title:"เรียก HTTP API",
+    code:`func fetchUser(id int) (*User, error) {
+\tresp, err := http.Get(fmt.Sprintf(url, id))
+\tif err != nil { return nil, err }
+\tvar u User
+\tjson.NewDecoder(resp.Body).Decode(&u)
+\treturn &u, nil
+}`,
+    answer:`**2 จุด**
+
+1. **ไม่ปิด resp.Body** → \`defer resp.Body.Close()\` (connection leak)
+2. **ไม่เช็ค decode error + status code** → API คืน 500/HTML จะ decode พังเงียบ
+
+\`\`\`
+resp, err := http.Get(url)
+if err != nil { return nil, err }
+defer resp.Body.Close()
+if resp.StatusCode != http.StatusOK { return nil, fmt.Errorf("status %d", resp.StatusCode) }
+var u User
+if err := json.NewDecoder(resp.Body).Decode(&u); err != nil { return nil, err }
+\`\`\``},
+   {type:"find", title:"wrap error หาย context",
+    code:`func saveOrder(o Order) error {
+\tif err := db.Insert(o); err != nil {
+\t\tlog.Println("insert failed")
+\t\treturn err
+\t}
+\treturn nil
+}`,
+    answer:`**2 จุดเชิงคุณภาพ**
+
+1. **error ไม่มี context** — \`return err\` ดิบๆ คนเรียกไม่รู้ว่าพังที่ขั้นไหน wrap ด้วย \`%w\`:
+\`\`\`
+return fmt.Errorf("save order %d: %w", o.ID, err)
+\`\`\`
+(\`%w\` ทำให้ \`errors.Is/As\` ยังเช็ค error ต้นทางได้)
+
+2. **log + return error ซ้ำซ้อน** — log ตรงนี้แล้ว return ด้วย → ชั้นบนอาจ log อีก กลายเป็น log ซ้ำหลายรอบ เลือกอย่างใดอย่างหนึ่ง (ปกติ: ไม่ log ชั้นล่าง wrap แล้วส่งขึ้นไป log ที่ชั้นบนสุดที่เดียว)
+
+**หลัก:** wrap error ด้วย \`%w\` + context ทุกชั้น, log ที่ขอบระบบที่เดียว`},
+   {type:"find", title:"เทียบ error ด้วย ==",
+    code:`if err == sql.ErrNoRows {
+\treturn nil, nil
+}`,
+    answer:`**1 จุด: เทียบ error ด้วย \`==\` ตรงๆ เปราะ**
+
+ถ้า error ถูก wrap (\`fmt.Errorf("...: %w", sql.ErrNoRows)\`) ที่ชั้นไหนสักชั้น → \`==\` จะ false → เช็คพลาด
+
+แก้: ใช้ \`errors.Is\`
+\`\`\`
+if errors.Is(err, sql.ErrNoRows) {
+    return nil, nil
+}
+\`\`\`
+สำหรับ custom error type ที่ต้องดึงค่าออกมา ใช้ \`errors.As\`
+**หลัก:** เทียบ error ใช้ \`errors.Is\`/\`errors.As\` เสมอ ไม่ใช่ \`==\` (รองรับ wrapped error)`},
+   {type:"judge", title:"ตัดสินคำตอบ AI",
+    code:`func mustParse(s string) int {
+\tn, err := strconv.Atoi(s)
+\tif err != nil { panic(err) }
+\treturn n
+}`,
+    ai:`โค้ดนี้มีปัญหา 2 จุด:\n1. ไม่ควร panic ใน library code ควร return error เสมอ\n2. strconv.Atoi ช้า ควรใช้ strconv.ParseInt แทนเพื่อ performance`,
+    answer:`**ข้อ 1 มีประเด็น (ขึ้นกับบริบท) · ข้อ 2 มั่ว**
+
+1. กึ่ง [REAL] — เป็น guideline ที่ถูก *ถ้า* นี่เป็น library code ที่คนอื่นเรียก ควร return error แต่ pattern \`mustXxx\` ที่ panic เป็นที่ยอมรับสำหรับ **ค่าคงที่ตอน init / test** ที่ถ้าพังคือ bug ของ programmer เอง ⇒ ต้องดูว่าใช้ที่ไหน ไม่ใช่ผิดเสมอ
+
+2. [FAKE] \`strconv.Atoi(s)\` จริงๆ **เรียก \`ParseInt(s, 10, 0)\` ข้างใน** — มันคือ wrapper ตัวเดียวกัน ไม่มีเรื่อง performance ต่างกัน AI มั่ว
+
+**บทเรียน:** ระวังคำแนะนำที่ "ถูกเป็นหลักการ" แต่ไม่ดูบริบท (ข้อ 1) และคำอ้าง performance ลอยๆ ที่ไม่จริง (ข้อ 2)`}
+  ]
+}
+);

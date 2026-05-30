@@ -1,0 +1,91 @@
+DATA.push(
+{
+  group:"Frontend", cat:"css", title:"CSS / Layout",
+  desc:"centering, stacking context, margin collapse, responsive, specificity — ดู 'ควรเวิร์ค' แต่ไม่เวิร์ค",
+  problems:[
+   {type:"concept", title:"จัดกึ่งกลางทั้งแนวตั้งแนวนอน",
+    code:`/* จัด .box ให้อยู่กลางจอพอดี วิธีสะอาดสุด? */`,
+    answer:`**flexbox / grid**
+\`\`\`
+.parent { display: grid; place-items: center; min-height: 100vh; }
+\`\`\`
+หรือ flex:
+\`\`\`
+.parent { display:flex; justify-content:center; align-items:center; min-height:100vh; }
+\`\`\`
+**ทำไมไม่ใช้ของเก่า:** \`margin:auto\` ได้แค่แนวนอน · \`absolute+translate\` เปราะ
+**พูด:** "ใช้ place-items:center บน grid ครับ สั้นและ robust สุด"`},
+   {type:"find", title:"tooltip ไม่ขึ้นทับ modal",
+    code:`.modal   { position: fixed; z-index: 10; }
+.tooltip { position: relative; z-index: 9999; }
+/* tooltip z-index เยอะกว่า แต่ไม่ทับ modal */`,
+    answer:`**stacking context — z-index เทียบกันได้แค่ใน context เดียวกัน**
+
+ถ้า \`.tooltip\` อยู่ใน parent ที่สร้าง stacking context ใหม่ (parent มี \`transform\`, \`opacity < 1\`, \`filter\`) → 9999 เทียบแค่ภายใน parent นั้น ไม่ได้แข่งกับ \`.modal\`
+
+แก้: render tooltip ผ่าน portal ไปที่ \`body\` (หลุดออกจาก context ของ parent) หรือเอา transform/opacity ที่ parent ออก
+
+**หลัก:** z-index เยอะแต่ไม่ทับ → สงสัย stacking context ของ parent (transform/opacity/filter)`},
+   {type:"judge", title:"ตัดสินคำตอบ AI",
+    code:`.container { display: flex; }
+.item { width: 200px; }
+/* มี 5 item, container 600px → item ล้นออก */`,
+    ai:`แก้ได้ 2 วิธี:\n1. ใส่ flex-wrap: wrap ให้ item ขึ้นบรรทัดใหม่\n2. ใส่ overflow: hidden ที่ container เพื่อแก้ปัญหา layout อย่างสมบูรณ์`,
+    answer:`**ข้อ 1 จริง · ข้อ 2 มั่ว (แก้ผิดที่)**
+
+1. [REAL] \`flex-wrap: wrap\` ให้ item ล้นขึ้นบรรทัดใหม่ แก้จริง
+2. [FAKE] \`overflow: hidden\` **แค่ซ่อน ไม่ได้แก้** — item ที่ล้นถูกตัดหายจากตา ผู้ใช้เห็นแค่ 3 จาก 5 เป็นการกลบปัญหา
+
+ทางแก้จริงอื่น: \`flex-shrink\`, \`flex: 1\`, \`flex-wrap\`
+
+**บทเรียน:** ระวังคำตอบที่ "ทำให้อาการหาย" แต่ไม่แก้เหตุ — แยก "แก้" กับ "ซ่อน"`},
+   {type:"concept", title:"responsive โดยไม่ใช้ media query เยอะ",
+    code:`/* อยากให้ font + การ์ดยืดหดตามจอ โดยไม่เขียน @media หลายๆ breakpoint */`,
+    answer:`**ใช้ intrinsic / fluid techniques สมัยใหม่**
+
+1. **\`clamp()\`** สำหรับขนาดที่ยืดหดต่อเนื่อง:
+\`\`\`
+font-size: clamp(1rem, 2.5vw, 1.5rem);   /* min, ค่ายืด, max */
+\`\`\`
+2. **grid auto-fit + minmax** สำหรับการ์ดที่จัดคอลัมน์เองตามที่ว่าง:
+\`\`\`
+display: grid;
+grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+\`\`\`
+การ์ดจะ wrap เองเมื่อจอแคบ โดยไม่ต้องเขียน breakpoint
+3. **\`min()\`/\`max()\`** เช่น \`width: min(100%, 600px)\`
+
+**ข้อดี:** โค้ดน้อย ยืดหยุ่นต่อเนื่อง ไม่ต้องเดา breakpoint
+**พูด:** "ผมใช้ clamp กับ grid auto-fit minmax ครับ มัน responsive เองโดยไม่ต้องเขียน media query หลายชั้น"`},
+   {type:"find", title:"ช่องว่างเกินมาจากไหน",
+    code:`.parent { background: red; }
+.child  { margin-top: 40px; }
+/* parent มีช่องว่างด้านบนโผล่มา ทั้งที่ตั้ง margin ที่ child */`,
+    answer:`**1 จุด: margin collapse**
+
+\`margin-top\` ของ child ลูกตัวแรก "ทะลุ" ออกไปนอก parent (collapse กับ margin ของ parent) → ดันทั้ง parent ลงมา แทนที่จะดัน child ในกล่อง
+
+แก้ (อย่างใดอย่างหนึ่ง) — สร้าง BFC หรือกั้น margin:
+\`\`\`
+.parent { padding-top: 1px; }      /* หรือ */
+.parent { overflow: hidden; }      /* สร้าง BFC */
+.parent { display: flow-root; }    /* วิธีสะอาดสุด */
+\`\`\`
+หรือใช้ \`padding\` แทน \`margin\` ที่ child
+
+**หลัก:** ช่องว่างโผล่เกินคาดในแนวตั้ง → สงสัย margin collapse ระหว่าง parent กับ child ตัวแรก/สุดท้าย`},
+   {type:"judge", title:"ตัดสินคำตอบ AI",
+    code:`.btn { color: blue; }
+#submit { color: green; }
+/* <button id="submit" class="btn"> → ออกมาสีอะไร? */`,
+    ai:`ปุ่มนี้:\n1. จะเป็นสีน้ำเงิน เพราะ class .btn เขียนทีหลังในไฟล์ จึงชนะ\n2. ถ้าอยากให้เป็นเขียวต้องใส่ !important ที่ #submit`,
+    answer:`**ทั้ง 2 ข้อ มั่ว**
+
+1. [FAKE] ออกมา **สีเขียว** — \`#submit\` เป็น **id selector** (specificity สูงกว่า class มาก) ชนะ \`.btn\` เสมอ ไม่เกี่ยวกับลำดับในไฟล์ (ลำดับสำคัญแค่เมื่อ specificity **เท่ากัน**)
+2. [FAKE] ไม่ต้องใช้ \`!important\` เลย id ชนะ class อยู่แล้ว — \`!important\` เป็นทางเลือกสุดท้ายที่ควรเลี่ยง (ทำให้ override ยากในอนาคต)
+
+**ลำดับ specificity:** inline > id > class/attr/pseudo-class > element
+**บทเรียน:** AI สับสนกฎ specificity กับ "ลำดับในไฟล์" — ลำดับสำคัญเฉพาะตอน specificity เท่ากันเท่านั้น`}
+  ]
+}
+);

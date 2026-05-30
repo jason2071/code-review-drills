@@ -24,11 +24,12 @@
 |------|--------|
 | `index.html` | skeleton markup + `<link>`/`<script>` |
 | `styles.css` | CSS ทั้งหมด |
-| `data.js` | `DATA` array — โจทย์ทั้งหมด |
+| `data.js` | ประกาศ `const DATA = []` (registry) |
+| `data/NN-<cat>.js` | 1 ไฟล์ต่อ 1 หมวด — `DATA.push({...})` |
 | `app.js` | renderer + helper (`escapeHtml`, `fmt`) |
 
-Load order: `data.js` ก่อน `app.js`
+Load order: `data.js` → `data/NN-*.js` (เรียงเลข) → `app.js`
 
 ## เพิ่มโจทย์
 
-เพิ่ม object เข้า `problems` array ใน `data.js` (หรือเพิ่ม category ใหม่ใน `DATA`). slug `cat` ใหม่จะสร้างปุ่ม sidebar อัตโนมัติ. รายละเอียด shape ดู [CLAUDE.md](CLAUDE.md).
+เพิ่ม object เข้า `problems` array ในไฟล์ `data/NN-*.js` ของหมวดนั้น. หมวดใหม่: สร้าง `data/NN-<cat>.js` (`DATA.push({...})`) + เพิ่ม `<script>` tag ใน `index.html`. slug `cat` ใหม่สร้างปุ่ม sidebar อัตโนมัติ. รายละเอียด shape ดู [CLAUDE.md](CLAUDE.md).

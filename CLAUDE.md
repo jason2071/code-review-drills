@@ -9,10 +9,11 @@ Static, dependency-free Thai-language SPA for practicing code review: spotting b
 Files:
 - `index.html` — skeleton markup + `<link>`/`<script>` tags
 - `styles.css` — all CSS
-- `data.js` — the `DATA` array (all drill content)
+- `data.js` — declares `const DATA = []` (the registry)
+- `data/NN-<cat>.js` — one file per category; each does `DATA.push({...})`
 - `app.js` — `escapeHtml`, `fmt`, and the renderer
 
-Load order matters: `data.js` before `app.js` (app.js reads the global `DATA`).
+Load order matters (set by the `<script>` tags in `index.html`): `data.js` first, then every `data/NN-*.js` in numeric order, then `app.js` (which reads the global `DATA`). Adding a category file means adding a `<script>` tag — there is no auto-discovery.
 
 ## Run / develop
 
@@ -20,7 +21,7 @@ Open `index.html` directly in a browser. No build step. Edit a file, refresh. Fo
 
 ## Architecture
 
-All content is the `DATA` array in `data.js`. `app.js` is a small renderer that builds the sidebar nav and renders one category at a time into `#main`.
+All content is the global `DATA` array, assembled at load time: `data.js` declares it empty, each `data/NN-*.js` pushes one category object. `app.js` is a small renderer that builds the sidebar nav and renders one category at a time into `#main`.
 
 ### `DATA` shape
 ```
@@ -45,7 +46,7 @@ All content is the `DATA` array in `data.js`. `app.js` is a small renderer that 
 
 ## Adding a drill
 
-Add an object to a `problems` array (or a new top-level category object to `DATA`). A new `cat` slug auto-creates a sidebar button under its `group` with a problem count — no other wiring needed.
+Add an object to a `problems` array in the relevant `data/NN-*.js`. For a new category: create `data/NN-<cat>.js` containing `DATA.push({...})` and add a matching `<script>` tag in `index.html` (in load order). A new `cat` slug auto-creates a sidebar button under its `group` with a problem count — no other wiring needed.
 
 ## Conventions
 
