@@ -127,7 +127,78 @@ net/http มาตรฐานใช้ \`httptest.NewRecorder()\` + \`handler.S
 **กุญแจ:**
 - ไม่ต้องเปิด server จริง/ใช้ port — ทดสอบในหน่วยความจำ เร็วและ isolated
 - mock service/repo ที่ handler เรียกด้วย (เทสต์ handler ไม่ควรแตะ DB จริง)
-- เทสต์หลาย case ด้วย table-driven (method/path/status/body)`}
+- เทสต์หลาย case ด้วย table-driven (method/path/status/body)`},
+   {type:"find", title:"assert error ด้วย string",
+    code:`func TestFetch(t *testing.T) {
+\t_, err := Fetch(badURL)
+\tassert.Equal(t, "not found", err.Error())
+}`,
+    answer:`**เทียบ error ด้วย string เปราะ + พลาด wrapped error**
+
+ถ้า error ถูก wrap (\`fmt.Errorf("fetch: %w", ErrNotFound)\`) → \`err.Error()\` = "fetch: not found" ไม่ตรง → fail. ข้อความเปลี่ยนนิดเดียวก็พัง
+
+ใช้ \`ErrorIs\` กับ sentinel (ทะลุ wrap ด้วย \`errors.Is\`):
+\`\`\`
+require.ErrorIs(t, err, ErrNotFound)
+\`\`\`
+- \`assert.Error(t, err)\` — แค่เช็คว่ามี error
+- \`assert.ErrorIs(t, err, target)\` — เช็ค sentinel ทะลุ wrap (ที่ถูก)
+- \`assert.ErrorAs(t, err, &target)\` — ดึง custom error type ออกมาเช็ค field
+- \`assert.ErrorContains(t, err, "...")\` — เช็ค substring (ยังดีกว่า Equal ทั้งสตริง)
+
+**หลัก:** อย่า assert error ด้วยข้อความตรงตัว → \`ErrorIs\` sentinel`},
+   {type:"find", title:"assert.Equal กับ float",
+    code:`func TestAvg(t *testing.T) {
+\tgot := Sum([]float64{0.1, 0.2})
+\tassert.Equal(t, 0.3, got)
+}`,
+    answer:`**1 จุด: เทียบ float ด้วย Equal**
+
+\`0.1 + 0.2 = 0.30000000000000004\` (binary float ปัดเศษ) → ไม่เท่ากับ \`0.3\` เป๊ะ → \`assert.Equal\` fail ทั้งที่ logic ถูก
+
+ใช้ระยะคลาดเคลื่อน:
+\`\`\`
+assert.InDelta(t, 0.3, got, 1e-9)     // ต่างได้ไม่เกิน delta
+assert.InEpsilon(t, 0.3, got, 1e-9)   // ต่างได้ไม่เกินสัดส่วน (relative)
+\`\`\`
+**หลัก:** เทียบ float ห้าม \`Equal\` ตรงๆ → \`InDelta\` (ค่าสัมบูรณ์) หรือ \`InEpsilon\` (สัดส่วน เหมาะกับเลขใหญ่)`},
+   {type:"find", title:"เทียบ slice ที่ลำดับไม่แน่",
+    code:`func TestTags(t *testing.T) {
+\tgot := GetTags() // []string สร้างจากการวน map → ลำดับไม่แน่
+\tassert.Equal(t, []string{"go", "db"}, got)
+}`,
+    answer:`**1 จุด: Equal เทียบ slice ตามลำดับ → flaky**
+
+map iteration ใน Go ลำดับ **ไม่แน่นอน** → \`got\` อาจเป็น \`["db","go"]\` บางรอบ → \`assert.Equal\` fail แบบสุ่ม (flaky)
+
+ถ้าไม่สนลำดับ ใช้:
+\`\`\`
+assert.ElementsMatch(t, []string{"go", "db"}, got)
+\`\`\`
+เช็คว่ามีสมาชิกชุดเดียวกัน (นับ duplicate ด้วย) ไม่สนลำดับ
+
+**หลัก:** เทียบ collection ที่ลำดับไม่สำคัญ → \`ElementsMatch\` · ถ้าต้องสนลำดับค่อย \`Equal\` (หรือ sort ก่อนเทียบ)`},
+   {type:"find", title:"assertion helper ไม่เรียก t.Helper()",
+    code:`func checkUser(t *testing.T, u *User) {
+\tassert.Equal(t, "Alice", u.Name)
+\tassert.True(t, u.Active)
+}
+func TestProfile(t *testing.T) {
+\tcheckUser(t, got)
+}`,
+    answer:`**1 จุด: helper ขาด \`t.Helper()\` → fail ชี้ผิดบรรทัด**
+
+เวลา assert ใน \`checkUser\` fail รายงานจะชี้บรรทัด **ในตัว helper** ไม่ใช่บรรทัดที่เรียก (\`checkUser(t, got)\`) → มีหลาย caller ยิ่ง debug ยากว่าเคสไหนพัง
+
+เพิ่ม \`t.Helper()\` บรรทัดแรก:
+\`\`\`
+func checkUser(t *testing.T, u *User) {
+    t.Helper()                       // failure ชี้ตำแหน่งที่เรียก
+    assert.Equal(t, "Alice", u.Name)
+    assert.True(t, u.Active)
+}
+\`\`\`
+**หลัก:** ฟังก์ชันที่รับ \`*testing.T\` แล้ว assert เอง → ใส่ \`t.Helper()\` เสมอ`}
   ]
 }
 );
