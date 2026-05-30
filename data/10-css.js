@@ -14,7 +14,8 @@ DATA.push(
 .parent { display:flex; justify-content:center; align-items:center; min-height:100vh; }
 \`\`\`
 **ทำไมไม่ใช้ของเก่า:** \`margin:auto\` ได้แค่แนวนอน · \`absolute+translate\` เปราะ
-**พูด:** "ใช้ place-items:center บน grid ครับ สั้นและ robust สุด"`},
+**พูด:** "ใช้ place-items:center บน grid ครับ สั้นและ robust สุด"`,
+    note:`flex/grid จัดกึ่งกลางได้ทั้งสองแกนสะอาดสุด. แนวคิด: layout สมัยใหม่ใช้ flow ของ flex/grid แทน hack เก่า (margin auto/absolute+transform)`},
    {type:"find", title:"tooltip ไม่ขึ้นทับ modal",
     code:`.modal   { position: fixed; z-index: 10; }
 .tooltip { position: relative; z-index: 9999; }
@@ -25,7 +26,8 @@ DATA.push(
 
 แก้: render tooltip ผ่าน portal ไปที่ \`body\` (หลุดออกจาก context ของ parent) หรือเอา transform/opacity ที่ parent ออก
 
-**หลัก:** z-index เยอะแต่ไม่ทับ → สงสัย stacking context ของ parent (transform/opacity/filter)`},
+**หลัก:** z-index เยอะแต่ไม่ทับ → สงสัย stacking context ของ parent (transform/opacity/filter)`,
+    note:`\`z-index\` ทำงานใน stacking context — parent ที่มี \`transform\`/\`opacity\`/\`filter\` สร้าง context ใหม่ที่ขังลูกไว้. แนวคิด: z-index ไม่ใช่ค่า global; เทียบกันเฉพาะใน context เดียว`},
    {type:"judge", title:"ตัดสินคำตอบ AI",
     code:`.container { display: flex; }
 .item { width: 200px; }
@@ -38,7 +40,8 @@ DATA.push(
 
 ทางแก้จริงอื่น: \`flex-shrink\`, \`flex: 1\`, \`flex-wrap\`
 
-**บทเรียน:** ระวังคำตอบที่ "ทำให้อาการหาย" แต่ไม่แก้เหตุ — แยก "แก้" กับ "ซ่อน"`},
+**บทเรียน:** ระวังคำตอบที่ "ทำให้อาการหาย" แต่ไม่แก้เหตุ — แยก "แก้" กับ "ซ่อน"`,
+    note:`อย่าเชื่อคำอธิบาย CSS ที่สับสนกฎพื้นฐาน. แนวคิด: เข้าใจ cascade + specificity + box model ก่อน — ปัญหา layout ส่วนใหญ่มาจากสามอย่างนี้`},
    {type:"concept", title:"responsive โดยไม่ใช้ media query เยอะ",
     code:`/* อยากให้ font + การ์ดยืดหดตามจอ โดยไม่เขียน @media หลายๆ breakpoint */`,
     answer:`**ใช้ intrinsic / fluid techniques สมัยใหม่**
@@ -56,7 +59,8 @@ grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
 3. **\`min()\`/\`max()\`** เช่น \`width: min(100%, 600px)\`
 
 **ข้อดี:** โค้ดน้อย ยืดหยุ่นต่อเนื่อง ไม่ต้องเดา breakpoint
-**พูด:** "ผมใช้ clamp กับ grid auto-fit minmax ครับ มัน responsive เองโดยไม่ต้องเขียน media query หลายชั้น"`},
+**พูด:** "ผมใช้ clamp กับ grid auto-fit minmax ครับ มัน responsive เองโดยไม่ต้องเขียน media query หลายชั้น"`,
+    note:`ใช้ \`flex-wrap\`/\`grid auto-fit\`/\`clamp()\` ลด media query. แนวคิด: ออกแบบให้ layout ปรับตัวเอง (intrinsic) ดีกว่า hardcode breakpoint เป็นช่วงๆ`},
    {type:"find", title:"ช่องว่างเกินมาจากไหน",
     code:`.parent { background: red; }
 .child  { margin-top: 40px; }
@@ -73,7 +77,8 @@ grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
 \`\`\`
 หรือใช้ \`padding\` แทน \`margin\` ที่ child
 
-**หลัก:** ช่องว่างโผล่เกินคาดในแนวตั้ง → สงสัย margin collapse ระหว่าง parent กับ child ตัวแรก/สุดท้าย`},
+**หลัก:** ช่องว่างโผล่เกินคาดในแนวตั้ง → สงสัย margin collapse ระหว่าง parent กับ child ตัวแรก/สุดท้าย`,
+    note:`ช่องว่างแนวตั้งเกินมักมาจาก margin collapse ระหว่าง parent/child. แนวคิด: vertical margin ของ block ยุบรวมกัน — ต้องรู้จัก BFC`},
    {type:"judge", title:"ตัดสินคำตอบ AI",
     code:`.btn { color: blue; }
 #submit { color: green; }
@@ -85,7 +90,8 @@ grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
 2. [FAKE] ไม่ต้องใช้ \`!important\` เลย id ชนะ class อยู่แล้ว — \`!important\` เป็นทางเลือกสุดท้ายที่ควรเลี่ยง (ทำให้ override ยากในอนาคต)
 
 **ลำดับ specificity:** inline > id > class/attr/pseudo-class > element
-**บทเรียน:** AI สับสนกฎ specificity กับ "ลำดับในไฟล์" — ลำดับสำคัญเฉพาะตอน specificity เท่ากันเท่านั้น`},
+**บทเรียน:** AI สับสนกฎ specificity กับ "ลำดับในไฟล์" — ลำดับสำคัญเฉพาะตอน specificity เท่ากันเท่านั้น`,
+    note:`specificity: inline > id > class > element; ลำดับในไฟล์สำคัญเฉพาะเมื่อ specificity เท่ากัน. แนวคิด: cascade ดู specificity ก่อน แล้วค่อยลำดับ — เลี่ยง \`!important\``},
    {type:"find", title:"flex item ล้น แม้ลูกมี overflow-x",
     code:`.layout  { display: flex; }
 .content { flex: 1; }
@@ -100,7 +106,8 @@ flex item ค่าเริ่มต้น \`min-width:auto\` = ขนาด **
 \`\`\`
 (grid เจอแบบเดียวกัน → ใช้ \`grid-template-columns: minmax(0, 1fr)\`)
 
-**หลัก:** flex/grid item ที่มีลูกกว้าง (pre/table/ข้อความยาว) → \`min-width:0\` / \`minmax(0,1fr)\` ให้ scroll ภายในทำงาน`},
+**หลัก:** flex/grid item ที่มีลูกกว้าง (pre/table/ข้อความยาว) → \`min-width:0\` / \`minmax(0,1fr)\` ให้ scroll ภายในทำงาน`,
+    note:`flex/grid item \`min-width:auto\` = min-content → ใส่ \`min-width:0\` / \`minmax(0,1fr)\` ให้ลูก scroll ได้. แนวคิด: track sizing พึ่ง min-content โดย default ทำให้เนื้อหากว้าง (pre/table) ล้น`},
    {type:"find", title:"margin-top ของลูกดัน parent ทั้งกล่อง",
     code:`.parent { background: #eee; }
 .child  { margin-top: 40px; }
@@ -116,7 +123,8 @@ flex item ค่าเริ่มต้น \`min-width:auto\` = ขนาด **
 .parent { padding-top: 1px; }     /* หรือมี border/padding คั่น */
 /* หรือใช้ padding-top บน child แทน margin */
 \`\`\`
-**หลัก:** vertical margin ของ block ยุบรวมกัน · กั้นด้วย BFC (\`flow-root\`/\`overflow\`) หรือ padding/border`}
+**หลัก:** vertical margin ของ block ยุบรวมกัน · กั้นด้วย BFC (\`flow-root\`/\`overflow\`) หรือ padding/border`,
+    note:`กั้น margin collapse ด้วย BFC (\`flow-root\`/\`overflow\`) หรือ padding/border. แนวคิด: margin collapse เป็น behavior ตั้งใจของ flow layout — ควบคุมด้วยการสร้าง BFC`}
   ]
 }
 );

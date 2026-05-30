@@ -13,7 +13,8 @@ amount BIGINT    -- ?`,
 - \`NUMERIC(12,2)\`/\`DECIMAL\` — แม่นยำ เหมาะที่สุด (default)
 - \`BIGINT\` เก็บเป็นสตางค์/cents — เร็ว+แม่น แต่ต้องคูณ/หาร 100 เองในโค้ด
 
-**พูด:** "เงินห้าม float ครับ เพราะปัดเศษเพี้ยน ผมใช้ NUMERIC(12,2)"`},
+**พูด:** "เงินห้าม float ครับ เพราะปัดเศษเพี้ยน ผมใช้ NUMERIC(12,2)"`,
+    note:`เงินห้าม float — binary float แทนเศษทศนิยมฐาน 10 ไม่ลงตัว. แนวคิด: เลือก type ตาม domain ของข้อมูล; เงินต้อง exact (\`NUMERIC\` หรือ integer cents)`},
    {type:"concept", title:"ควร index คอลัมน์ไหน?",
     code:`-- orders: id, user_id, status, created_at, total
 SELECT * FROM orders
@@ -26,7 +27,8 @@ ON orders (user_id, status, created_at DESC);
 \`\`\`
 เหตุผล: \`user_id\`(equality,selective) → \`status\`(equality) → \`created_at\`(order, ใส่ DESC ให้ตรง → ไม่ต้อง sort เพิ่ม)
 
-**ESR rule:** Equality → Sort → Range · อย่าแยก index ทีละคอลัมน์ถ้าใช้พร้อมกัน`},
+**ESR rule:** Equality → Sort → Range · อย่าแยก index ทีละคอลัมน์ถ้าใช้พร้อมกัน`,
+    note:`composite index เรียงตาม ESR (Equality → Sort → Range) — ลำดับคอลัมน์สำคัญ. แนวคิด: index คือ B-tree เรียงซ้าย-ขวา; ใช้ได้เต็มเมื่อ query ตรงกับ prefix ของลำดับ`},
    {type:"concept", title:"ความสัมพันธ์ many-to-many",
     code:`-- นักเรียนลงได้หลายวิชา วิชามีได้หลายนักเรียน
 -- students(id,name)  courses(id,title)`,
@@ -44,7 +46,8 @@ CREATE TABLE enrollments (
 - field เพิ่มที่เป็นของ "ความสัมพันธ์" (เช่น grade) ใส่ที่นี่
 - index เพิ่มบน \`course_id\` (PK ครอบ student_id แล้ว)
 
-**หลัก:** m-to-m = แตกตารางกลางเสมอ ห้ามยัด array/comma ในคอลัมน์เดียว`},
+**หลัก:** m-to-m = แตกตารางกลางเสมอ ห้ามยัด array/comma ในคอลัมน์เดียว`,
+    note:`many-to-many ต้องมี junction table เสมอ — ห้ามยัด list ในคอลัมน์เดียว. แนวคิด: relational model เก็บความสัมพันธ์เป็นแถว ไม่ใช่ array ในเซลล์ (1NF)`},
    {type:"concept", title:"ลบข้อมูล: soft delete หรือ hard delete?",
     code:`-- ลูกค้ากดลบ order ควรลบจริง หรือ mark ว่าลบ?`,
     answer:`**ขึ้นกับ requirement — ต้องถามก่อนตอบ**
@@ -57,7 +60,8 @@ CREATE TABLE enrollments (
 - ข้อดี: สะอาด, ตารางเล็ก, query ตรงไปตรงมา
 - ข้อเสีย: กู้ไม่ได้, เสีย history
 
-**คำตอบที่ดี:** "ถ้าเป็นข้อมูลธุรกรรม/ต้อง audit (order, payment) ผมใช้ soft delete + index partial บน deleted_at ครับ ถ้าเป็น log ชั่วคราว/PII ที่กฎหมายบังคับให้ลบ ก็ hard delete" — โชว์ว่าเลือกตามบริบท ไม่ใช่มีคำตอบเดียว`},
+**คำตอบที่ดี:** "ถ้าเป็นข้อมูลธุรกรรม/ต้อง audit (order, payment) ผมใช้ soft delete + index partial บน deleted_at ครับ ถ้าเป็น log ชั่วคราว/PII ที่กฎหมายบังคับให้ลบ ก็ hard delete" — โชว์ว่าเลือกตามบริบท ไม่ใช่มีคำตอบเดียว`,
+    note:`เลือก soft/hard delete ตาม requirement (audit/กู้คืน vs สะอาด) ไม่มีคำตอบเดียว. แนวคิด: การลบเป็น domain decision; soft delete แลก query complexity กับ recoverability`},
    {type:"concept", title:"เก็บเวลา ใช้ timestamp แบบไหน?",
     code:`created_at TIMESTAMP      -- ?
 created_at TIMESTAMPTZ    -- ?`,
@@ -71,7 +75,8 @@ created_at TIMESTAMPTZ    -- ?`,
 - แปลงเป็น local time ที่ชั้น app/UI ตอนแสดงผล (เช่น Asia/Bangkok)
 - อย่าเก็บ local time ดิบๆ
 
-**พูด:** "ผมใช้ TIMESTAMPTZ เก็บ UTC ครับ แล้วแปลงเป็นเวลาไทยตอนแสดงผล กันปัญหา timezone"`},
+**พูด:** "ผมใช้ TIMESTAMPTZ เก็บ UTC ครับ แล้วแปลงเป็นเวลาไทยตอนแสดงผล กันปัญหา timezone"`,
+    note:`ใช้ \`TIMESTAMPTZ\` เก็บ UTC แล้วแปลง local ที่ชั้นแสดงผล. แนวคิด: เก็บเวลาเป็นจุดสัมบูรณ์ (instant) แยกจากการนำเสนอ (timezone) — เหมือนแยก data จาก view`},
    {type:"concept", title:"สถานะ order: ENUM หรือ lookup table?",
     code:`-- status: pending / paid / shipped / cancelled
 status ??? `,
@@ -87,7 +92,8 @@ status TEXT NOT NULL CHECK (status IN ('pending','paid','shipped','cancelled'))
 
 3. **Lookup table** (\`order_statuses\` + FK) — ยืดหยุ่นสุด เพิ่ม metadata ได้ (label, สี, ลำดับ) เหมาะถ้าสถานะมีข้อมูลพ่วงหรือเปลี่ยนบ่อย แต่ต้อง JOIN
 
-**คำตอบที่ดี:** "ถ้าค่าคงที่ไม่ค่อยเปลี่ยน ผมใช้ VARCHAR + CHECK ครับ อ่านง่ายและ flexible สุด ถ้าสถานะต้องมี metadata (label/ลำดับ/แปลภาษา) ค่อยแยกเป็น lookup table" — โชว์ trade-off`},
+**คำตอบที่ดี:** "ถ้าค่าคงที่ไม่ค่อยเปลี่ยน ผมใช้ VARCHAR + CHECK ครับ อ่านง่ายและ flexible สุด ถ้าสถานะต้องมี metadata (label/ลำดับ/แปลภาษา) ค่อยแยกเป็น lookup table" — โชว์ trade-off`,
+    note:`\`VARCHAR + CHECK\` ง่ายและยืดหยุ่น; lookup table เมื่อสถานะมี metadata. แนวคิด: เลือกตามว่า "ค่า" ต้องมีข้อมูลพ่วงไหม + เปลี่ยนบ่อยแค่ไหน (ง่าย vs ขยายได้)`},
    {type:"find", title:"normalize ให้ถึง 3NF",
     code:`-- ตารางนี้ผิดหลัก normalize ตรงไหน?
 orders (
@@ -109,7 +115,8 @@ order_items(order_id, product_id, qty, unit_price)
 \`\`\`
 **ทริค:** non-key ทุกคอลัมน์ต้องขึ้นกับ "the key, the whole key, nothing but the key"
 
-**ข้อยกเว้นจงใจ:** \`order_items.unit_price\` เก็บ **snapshot ราคา ณ เวลาสั่ง** (denormalize ตั้งใจ) — ไม่ใช่ดึงจาก \`products.price\` สด เพราะราคาเปลี่ยนทีหลังจะทำให้ยอดเก่าเพี้ยน`},
+**ข้อยกเว้นจงใจ:** \`order_items.unit_price\` เก็บ **snapshot ราคา ณ เวลาสั่ง** (denormalize ตั้งใจ) — ไม่ใช่ดึงจาก \`products.price\` สด เพราะราคาเปลี่ยนทีหลังจะทำให้ยอดเก่าเพี้ยน`,
+    note:`ทุก non-key ต้องขึ้นกับ key ทั้งหมดและ key เท่านั้น — กัน update anomaly. แนวคิด: normalize = ตัดข้อมูลซ้ำเพื่อ integrity; denormalize อย่างจงใจ (snapshot ราคา) เป็นคนละเรื่อง`},
    {type:"concept", title:"primary key: natural, surrogate, หรือ composite?",
     code:`-- users มี email (unique) อยู่แล้ว
 -- ใช้ email เป็น PK เลยดีไหม? หรือต้องมี id แยก?`,
@@ -121,7 +128,8 @@ order_items(order_id, product_id, qty, unit_price)
 
 UUID vs BIGINT: UUID ดีตอน distributed / กันเดา id แต่ใหญ่กว่า + random ทำ index fragment → ใช้ **UUIDv7/ULID** (เรียงตามเวลา) ลดปัญหาได้
 
-**พูด:** "ผมใช้ surrogate id เป็น PK ครับ แล้ว UNIQUE บน email — กัน PK เปลี่ยนค่าและ join เร็ว"`},
+**พูด:** "ผมใช้ surrogate id เป็น PK ครับ แล้ว UNIQUE บน email — กัน PK เปลี่ยนค่าและ join เร็ว"`,
+    note:`surrogate key คงที่+แคบ; natural key เปลี่ยนค่าได้ทำให้ cascade ลำบาก. แนวคิด: PK ควรเสถียรและไม่มีความหมายทางธุรกิจ (immutable identity)`},
    {type:"find", title:"วาง foreign key ผิดฝั่ง (1-to-many)",
     code:`-- 1 user มีได้หลาย post
 CREATE TABLE users (
@@ -146,7 +154,8 @@ CREATE TABLE posts (
 -- users ไม่เก็บอะไรเพิ่ม
 CREATE INDEX idx_posts_user ON posts(user_id);
 \`\`\`
-**หลัก:** FK อยู่ฝั่ง many เสมอ · ฝั่ง one ไม่ถือ key ของอีกฝั่ง`},
+**หลัก:** FK อยู่ฝั่ง many เสมอ · ฝั่ง one ไม่ถือ key ของอีกฝั่ง`,
+    note:`1-to-many: FK อยู่ฝั่ง many เสมอ. แนวคิด: cardinality กำหนดที่วาง FK — ฝั่งที่ "มีได้หนึ่ง" ถือ reference ไปฝั่ง "หนึ่ง"`},
    {type:"find", title:"foreign key ไม่ตั้ง ON DELETE + ไม่ index",
     code:`CREATE TABLE order_items (
   id       BIGINT PRIMARY KEY,
@@ -166,7 +175,8 @@ CREATE TABLE order_items (
 );
 CREATE INDEX idx_order_items_order ON order_items(order_id);
 \`\`\`
-**หลัก:** ทุก FK → ตั้ง ON DELETE ให้ชัด + index คอลัมน์ FK เอง (Postgres ไม่ทำให้)`},
+**หลัก:** ทุก FK → ตั้ง ON DELETE ให้ชัด + index คอลัมน์ FK เอง (Postgres ไม่ทำให้)`,
+    note:`ตั้ง \`ON DELETE\` ให้ชัด + index FK เอง (Postgres ไม่ทำให้). แนวคิด: referential integrity ต้องบอก DB ว่าจะทำยังไงเมื่อ parent หาย; FK ไม่ auto-index = ช้าเงียบ`},
    {type:"judge", title:"เก็บ tags ของ post (n-to-m)",
     code:`-- post มีได้หลาย tag, tag อยู่ได้หลาย post
 -- posts(id, title)   tags ???`,
@@ -185,7 +195,8 @@ post_tags(
   PRIMARY KEY (post_id, tag_id)
 )
 \`\`\`
-**ข้อยกเว้น:** ถ้า tag ไม่ต้องเป็น entity (ไม่มี metadata) บน Postgres ใช้ \`TEXT[]\` + **GIN index** ก็ได้ — แต่ comma ยัดใน \`TEXT\` เดียวผิดเสมอ`},
+**ข้อยกเว้น:** ถ้า tag ไม่ต้องเป็น entity (ไม่มี metadata) บน Postgres ใช้ \`TEXT[]\` + **GIN index** ก็ได้ — แต่ comma ยัดใน \`TEXT\` เดียวผิดเสมอ`,
+    note:`comma string ละเมิด 1NF — ใช้ junction หรือ \`TEXT[]\`+GIN. แนวคิด: หลายค่าต่อแถวต้องแตกแถว; ค่าที่ atomic ทำให้ query/constraint/index ทำงานได้`},
    {type:"find", title:"EAV: เก็บ attribute เป็น key-value",
     code:`-- เก็บคุณสมบัติสินค้าแบบ "ยืดหยุ่น"
 product_attributes(
@@ -207,7 +218,8 @@ products(id, name, color TEXT, size TEXT, weight_g INT)
 -- ยืดหยุ่น/sparse จริงๆ → JSONB + GIN index
 products(id, name, attributes JSONB)
 \`\`\`
-**หลัก:** อย่าใช้ EAV ถ้า attribute รู้ล่วงหน้า → คอลัมน์จริง/JSONB ได้ทั้ง query และ integrity`},
+**หลัก:** อย่าใช้ EAV ถ้า attribute รู้ล่วงหน้า → คอลัมน์จริง/JSONB ได้ทั้ง query และ integrity`,
+    note:`EAV ยืดหยุ่นแต่เสีย type/constraint/query — ใช้คอลัมน์จริงหรือ JSONB. แนวคิด: ความยืดหยุ่นแลกมาด้วยการสูญเสียโครงสร้างที่ DB ช่วย enforce ให้`},
    {type:"concept", title:"เก็บทั้งก้อนใน JSONB ดีไหม?",
     code:`-- profile มี field เพิ่ม/เปลี่ยนบ่อย เก็บรวมใน JSONB เลยดีไหม?
 user_profiles(user_id, data JSONB)`,
@@ -225,7 +237,8 @@ user_profiles(
   prefs    JSONB DEFAULT '{}'    -- ส่วนยืดหยุ่น
 )
 \`\`\`
-**หลัก:** อะไรที่ query/บังคับ/JOIN บ่อย ดึงออกเป็นคอลัมน์ · JSONB ไว้ส่วนที่ยืดหยุ่นจริง`}
+**หลัก:** อะไรที่ query/บังคับ/JOIN บ่อย ดึงออกเป็นคอลัมน์ · JSONB ไว้ส่วนที่ยืดหยุ่นจริง`,
+    note:`JSONB สำหรับ sparse/ไม่แน่นอน; คอลัมน์จริงสำหรับสิ่งที่ query/constraint บ่อย. แนวคิด: schema-on-write (คอลัมน์) vs schema-on-read (JSON) — เลือกตามว่าต้อง enforce/index แค่ไหน`}
   ]
 }
 );

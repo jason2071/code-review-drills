@@ -35,7 +35,8 @@ appointments(
 | ความสัมพันธ์ | ชนิด | ทำด้วย |
 |---|---|---|
 | doctor → appointment | 1-to-m | FK \`appointments.doctor_id\` |
-| patient → appointment | 1-to-m | FK \`appointments.patient_id\` |`},
+| patient → appointment | 1-to-m | FK \`appointments.patient_id\` |`,
+    note:`การนัดเป็น entity (มี attribute/identity) ไม่ใช่ junction เปล่า; กันจองซ้อนที่ DB. แนวคิด: ความสัมพันธ์ที่มีคุณสมบัติของตัวเอง = ยกระดับเป็น entity`},
    {type:"concept", title:"ออกแบบ: ตะกร้าสินค้า → คำสั่งซื้อ",
     code:`โจทย์: ร้านออนไลน์
 - user ใส่สินค้าหลายชิ้นลงตะกร้า ปรับจำนวนได้
@@ -76,7 +77,8 @@ order_items(
 |---|---|---|
 | user → cart / order | 1-to-m | FK |
 | cart ↔ product | n-to-m | \`cart_items\` (qty) |
-| order ↔ product | n-to-m | \`order_items\` (qty, unit_price snapshot) |`},
+| order ↔ product | n-to-m | \`order_items\` (qty, unit_price snapshot) |`,
+    note:`แยก cart (live) ออกจาก order (snapshot ราคา). แนวคิด: ข้อมูลที่ต้อง "หยุดเวลา" (ราคา ณ ตอนสั่ง) ต้อง denormalize เก็บไว้ ณ จุดนั้น ไม่ดึงสด`},
    {type:"concept", title:"ออกแบบ: ประวัติฉีดวัคซีนสัตว์เลี้ยง",
     code:`โจทย์: ระบบคลินิกสัตว์
 - เจ้าของมีสัตว์เลี้ยงได้หลายตัว
@@ -115,7 +117,8 @@ vaccinations(
 | owner → pet | 1-to-m | FK \`pets.owner_id\` |
 | pet → vaccination | 1-to-m | FK \`vaccinations.pet_id\` |
 | vaccine → vaccination | 1-to-m | FK \`vaccinations.vaccine_id\` |
-| clinic → vaccination | 1-to-m | FK \`vaccinations.clinic_id\` |`},
+| clinic → vaccination | 1-to-m | FK \`vaccinations.clinic_id\` |`,
+    note:`1 เข็ม = 1 แถว, \`dose_number\` ระบุลำดับ; อย่าทำ \`dose1/2/3\` columns. แนวคิด: ข้อมูลที่เป็นชุดซ้ำ = แถว ไม่ใช่คอลัมน์ (รักษา 1NF + ขยายจำนวนได้)`},
    {type:"concept", title:"ออกแบบ: ภาพยนตร์–นักแสดง (n-to-m + attribute)",
     code:`โจทย์: ฐานข้อมูลหนัง
 - 1 หนังมีนักแสดงหลายคน, 1 นักแสดงเล่นได้หลายหนัง
@@ -143,7 +146,8 @@ movie_cast(
 
 | ความสัมพันธ์ | ชนิด | ทำด้วย |
 |---|---|---|
-| movie ↔ actor | n-to-m | \`movie_cast\` (character_name) |`},
+| movie ↔ actor | n-to-m | \`movie_cast\` (character_name) |`,
+    note:`attribute ของความสัมพันธ์ (\`character_name\`) อยู่ที่ junction. แนวคิด: คุณสมบัติของ "คู่" ไม่ใช่ของฝ่ายใดฝ่ายเดียว → เก็บที่ตารางกลาง`},
    {type:"concept", title:"ออกแบบ: สูตรอาหาร–วัตถุดิบ (n-to-m + ปริมาณ)",
     code:`โจทย์: แอปสูตรอาหาร
 - 1 สูตรใช้วัตถุดิบหลายอย่าง, วัตถุดิบ 1 อย่างใช้ได้หลายสูตร
@@ -171,7 +175,8 @@ recipe_ingredients(
 
 | ความสัมพันธ์ | ชนิด | ทำด้วย |
 |---|---|---|
-| recipe ↔ ingredient | n-to-m | \`recipe_ingredients\` (quantity, unit) |`},
+| recipe ↔ ingredient | n-to-m | \`recipe_ingredients\` (quantity, unit) |`,
+    note:`junction ถือ \`quantity\`/\`unit\`; cascade เฉพาะฝั่ง recipe. แนวคิด: ค่าที่ขึ้นกับทั้งสองฝั่ง = junction; แยก number กับ unit เพื่อคำนวณ/สเกลได้`},
    {type:"concept", title:"ออกแบบ: user follow user (self-referential n-to-m)",
     code:`โจทย์: โซเชียล
 - user ติดตาม (follow) user คนอื่นได้หลายคน และถูกหลายคน follow ได้
@@ -200,7 +205,8 @@ follows(
 
 | ความสัมพันธ์ | ชนิด | ทำด้วย |
 |---|---|---|
-| user ↔ user | n-to-m (self, มีทิศ) | \`follows\` (follower_id, followee_id) |`},
+| user ↔ user | n-to-m (self, มีทิศ) | \`follows\` (follower_id, followee_id) |`,
+    note:`self-referential n-to-m — FK ชี้ \`users\` สองครั้ง + ตั้งชื่อบทบาท (follower/followee). แนวคิด: ความสัมพันธ์ภายใน entity เดียวกัน = junction ที่อ้างตัวเอง และมีทิศทาง`},
    {type:"concept", title:"ออกแบบ: ระบบสิทธิ์ RBAC (n-to-m ซ้อนชั้น)",
     code:`โจทย์: ระบบสิทธิ์ (RBAC)
 - user มีได้หลาย role, role มีได้หลาย user
@@ -235,7 +241,8 @@ role_permissions(
 | ความสัมพันธ์ | ชนิด | ทำด้วย |
 |---|---|---|
 | user ↔ role | n-to-m | \`user_roles\` |
-| role ↔ permission | n-to-m | \`role_permissions\` |`},
+| role ↔ permission | n-to-m | \`role_permissions\` |`,
+    note:`สอง n-to-m ต่อกัน (user-role, role-permission) ไม่ผูก permission ตรงกับ user. แนวคิด: ชั้นกลาง (role) = indirection ที่ทำให้แก้สิทธิ์จุดเดียวกระทบหลายคน`},
    {type:"concept", title:"ออกแบบ: จองห้องโรงแรม (กันช่วงวันทับ)",
     code:`โจทย์: ระบบจองโรงแรม
 - โรงแรมมีหลายห้อง, 1 ห้องถูกจองได้หลายครั้ง (คนละช่วงวัน)
@@ -268,7 +275,8 @@ bookings(
 | room → booking | 1-to-m | FK + \`EXCLUDE\` กันช่วงทับ |
 | guest → booking | 1-to-m | FK \`bookings.guest_id\` |
 
-**หลัก:** กัน "ช่วงเวลาทับ" = exclusion constraint ที่ DB · ไม่ใช่เช็คใน app (race)`},
+**หลัก:** กัน "ช่วงเวลาทับ" = exclusion constraint ที่ DB · ไม่ใช่เช็คใน app (race)`,
+    note:`กันช่วงเวลาทับด้วย exclusion constraint ที่ DB. แนวคิด: invariant สำคัญ (ห้ามจองทับ) ต้องบังคับที่ DB ไม่ใช่ app — เช็คใน app อย่างเดียวแพ้ race`},
    {type:"concept", title:"ออกแบบ: แชต (ห้องกลุ่ม + อ่านถึงไหน)",
     code:`โจทย์: ระบบแชต
 - user คุยกันเป็นห้อง (conversation) มีได้หลายคน (กลุ่ม)
@@ -307,7 +315,8 @@ messages(
 | conversation → message | 1-to-m | FK \`messages.conversation_id\` |
 | user → message (ผู้ส่ง) | 1-to-m | FK \`messages.sender_id\` |
 
-**หลัก:** สถานะของ "คู่" (อ่านถึงไหน) เก็บที่ junction · message อ้าง conversation ไม่ใช่คู่ user`}
+**หลัก:** สถานะของ "คู่" (อ่านถึงไหน) เก็บที่ junction · message อ้าง conversation ไม่ใช่คู่ user`,
+    note:`conversation↔user เป็น n-to-m, \`last_read_at\` อยู่ที่ junction. แนวคิด: สถานะของ "คู่" (อ่านถึงไหน) เก็บที่ junction; message อ้าง conversation ไม่ใช่คู่ user`}
   ]
 }
 );

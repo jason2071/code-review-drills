@@ -40,7 +40,8 @@ for i, id := range ids {
 }
 if err := g.Wait(); err != nil { return nil, err }
 \`\`\`
-**ทริค:** เขียนลง \`results[i]\` คนละช่อง → ไม่ต้อง lock`},
+**ทริค:** เขียนลง \`results[i]\` คนละช่อง → ไม่ต้อง lock`,
+    note:`งานขนานต้องตอบ 3 อย่าง: รอจบยังไง (\`WaitGroup\`/\`errgroup\`), เก็บผลปลอดภัยยังไง (channel หรือเขียนคนละ index ไม่ใช่ append ร่วม), ยกเลิกยังไง (\`context\`). แนวคิด: แชร์ memory เขียนพร้อมกัน = race เสมอ`},
    {type:"judge", title:"ตัดสินคำตอบ AI",
     code:`func SumPositive(nums []int) int {
 \tsum := 0
@@ -56,7 +57,8 @@ if err := g.Wait(); err != nil { return nil, err }
 2. [FAKE] ไม่มี goroutine = ไม่มี race เป็น loop single-thread
 3. [FAKE] index ไม่ได้ช้ากว่า range \`range\` แค่อ่านง่ายกว่า
 
-**บทเรียน:** กล้าพูด "โค้ดนี้โอเคแล้ว" ถ้าไม่มีบั๊กจริง · หลักจับ race: ไม่เห็น \`go\`/channel → ไม่ต้องพูดเรื่อง race`},
+**บทเรียน:** กล้าพูด "โค้ดนี้โอเคแล้ว" ถ้าไม่มีบั๊กจริง · หลักจับ race: ไม่เห็น \`go\`/channel → ไม่ต้องพูดเรื่อง race`,
+    note:`ระวังคำแนะนำที่ "ถูกเป็นหลักการ" แต่ไม่ตรงบริบท. แนวคิด: ก่อนเพิ่ม sync primitive ต้องรู้ว่าอันที่มีอยู่ thread-safe แล้วหรือยัง — ใส่เกินทำให้ช้าและซับซ้อนเปล่า`},
    {type:"find", title:"ปิด channel",
     code:`func produce(ch chan int, nums []int) {
 \tfor _, n := range nums { ch <- n }
@@ -76,7 +78,8 @@ func produce(ch chan int, nums []int) {
     for _, n := range nums { ch <- n }
 }
 \`\`\`
-**หลัก:** ฝั่งส่ง (sender) เป็นคนปิด channel เสมอ ฝั่งรับห้ามปิด`},
+**หลัก:** ฝั่งส่ง (sender) เป็นคนปิด channel เสมอ ฝั่งรับห้ามปิด`,
+    note:`ผู้ส่งเป็นคนปิด channel ไม่ใช่ผู้รับ — ปิดซ้ำ/ส่งหลังปิด = panic. แนวคิด: \`close\` คือ broadcast ว่า "ไม่มีข้อมูลอีกแล้ว" → ออกแบบให้มี owner ชัดเจน`},
    {type:"find", title:"WaitGroup.Add ผิดที่",
     code:`func run(tasks []Task) {
 \tvar wg sync.WaitGroup
@@ -104,7 +107,8 @@ for _, t := range tasks {
 }
 wg.Wait()
 \`\`\`
-**หลัก:** \`wg.Add\` ต้องเรียกก่อน start goroutine เสมอ ไม่ใช่ข้างใน`},
+**หลัก:** \`wg.Add\` ต้องเรียกก่อน start goroutine เสมอ ไม่ใช่ข้างใน`,
+    note:`\`wg.Add\` ต้องเรียกก่อน \`go\` ไม่ใช่ในตัว goroutine — ไม่งั้น \`Wait\` อาจผ่านก่อน Add ทัน. แนวคิด: counter ที่ใช้ synchronize ต้องไม่มี race กับตัวมันเอง`},
    {type:"find", title:"mutex ไม่ unlock ทุกทาง",
     code:`func (c *Counter) Inc(key string) error {
 \tc.mu.Lock()
@@ -127,7 +131,8 @@ if !ok { return errors.New("not found") }
 c.data[key] = v + 1
 return nil
 \`\`\`
-**หลัก:** \`Lock()\` แล้ว \`defer Unlock()\` บรรทัดถัดไปเสมอ → ปลอดภัยทุก return path`},
+**หลัก:** \`Lock()\` แล้ว \`defer Unlock()\` บรรทัดถัดไปเสมอ → ปลอดภัยทุก return path`,
+    note:`\`defer Unlock()\` ทันทีหลัง \`Lock()\` — กันลืม unlock ทุก return/panic path. แนวคิด: จับคู่ acquire/release ด้วย defer ให้เป็น scope-bound (แนวเดียวกับ RAII)`},
    {type:"judge", title:"ตัดสินคำตอบ AI",
     code:`var once sync.Once
 func GetConfig() *Config {
@@ -141,7 +146,8 @@ func GetConfig() *Config {
 
 2. ส่วนใหญ่ [FAKE] ในเคสนี้ — \`once.Do\` มี memory barrier ในตัว เขียน \`cfg\` เสร็จก่อน Do return ทุก goroutine ที่ผ่าน \`once.Do\` จะเห็นค่า \`cfg\` ที่ถูกต้อง (ตราบใดที่ไม่มีใครเขียน \`cfg\` ที่อื่นอีก)
 
-**บทเรียน:** \`sync.Once\` เป็น primitive ที่ thread-safe ในตัว AI มั่วบ่อยว่า "ต้องใส่ mutex เพิ่ม" กับของที่ปลอดภัยอยู่แล้ว`},
+**บทเรียน:** \`sync.Once\` เป็น primitive ที่ thread-safe ในตัว AI มั่วบ่อยว่า "ต้องใส่ mutex เพิ่ม" กับของที่ปลอดภัยอยู่แล้ว`,
+    note:`\`sync.Once\` thread-safe ในตัว ไม่ต้องใส่ mutex เพิ่ม. แนวคิด: รู้จัก primitive ของภาษา/ไลบรารีก่อน — หลายอย่าง (Once, atomic, sync.Map) ปลอดภัยอยู่แล้วโดยออกแบบ`},
    {type:"find", title:"เขียน map พร้อมกันหลาย goroutine",
     code:`m := map[int]int{}
 var wg sync.WaitGroup
@@ -164,7 +170,8 @@ go func(i int) {
 \`\`\`
 รันด้วย \`go test -race\` จับเจอ
 
-**หลัก:** แชร์ map ข้าม goroutine ต้อง lock เสมอ · \`-race\` คือเพื่อน`},
+**หลัก:** แชร์ map ข้าม goroutine ต้อง lock เสมอ · \`-race\` คือเพื่อน`,
+    note:`map ไม่มี internal lock — runtime ตรวจเจอ concurrent write แล้ว \`fatal error\` ทั้ง process (กู้ไม่ได้). แนวคิด: data structure ส่วนใหญ่ไม่ thread-safe โดย default; ห่อด้วย lock หรือใช้ตัวที่ออกแบบมา · \`go test -race\` คือเพื่อน`},
    {type:"find", title:"goroutine leak (ไม่มีทางออก)",
     code:`func Worker(jobs <-chan int) {
 \tgo func() {
@@ -194,7 +201,8 @@ func Worker(ctx context.Context, jobs <-chan int) {
     }()
 }
 \`\`\`
-**หลัก:** goroutine อายุยาวทุกตัวต้องมีทางออก (\`ctx.Done()\` / channel ปิด) ไม่งั้น leak`}
+**หลัก:** goroutine อายุยาวทุกตัวต้องมีทางออก (\`ctx.Done()\` / channel ปิด) ไม่งั้น leak`,
+    note:`goroutine ที่ block ค้างไม่ถูกเก็บ — leak สะสมจน memory/FD หมด. แนวคิด: ทุก goroutine ต้องมี "ทางออก" ที่กำหนดได้ (\`ctx.Done()\` / channel ปิด); ownership ของ lifecycle ต้องชัด`}
   ]
 }
 );

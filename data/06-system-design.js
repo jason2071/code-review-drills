@@ -13,7 +13,8 @@ DATA.push(
 5. connection pool เล็กไป?
 6. scale: app คอขวด → horizontal + LB; DB อ่านหนัก → read replica
 
-**กุญแจ:** โชว์ว่าวัดก่อนแก้ + รู้ว่าแต่ละวิธีแก้คนละปัญหา`},
+**กุญแจ:** โชว์ว่าวัดก่อนแก้ + รู้ว่าแต่ละวิธีแก้คนละปัญหา`,
+    note:`ไล่หา bottleneck เป็นชั้น วัดก่อนแก้ (DB/app/network). แนวคิด: optimize ตรงที่วัดได้ว่าช้าจริง ไม่ใช่ที่เดา (Amdahl's law)`},
    {type:"concept", title:"ออกแบบ rate limiting",
     code:`// จำกัด user เรียก API ไม่เกิน 100 ครั้ง/นาที`,
     answer:`**Clarify:** ต่อ user/IP? มีหลาย instance ไหม? (สำคัญสุด)
@@ -25,7 +26,8 @@ DATA.push(
 
 implementation: key \`ratelimit:{user}\` + \`INCR\`+\`EXPIRE\` หรือ sorted set; เกิน → \`429\` + \`Retry-After\`
 
-**กุญแจ:** ถามเรื่อง distributed — ตอบ in-memory เลยจะดูไม่เห็นภาพ production`},
+**กุญแจ:** ถามเรื่อง distributed — ตอบ in-memory เลยจะดูไม่เห็นภาพ production`,
+    note:`rate limit ที่ shared store (Redis) สำหรับหลาย instance — token bucket/sliding window. แนวคิด: การจำกัดอัตราต้องนับรวมทุก instance → state ต้อง centralize`},
    {type:"concept", title:"ETL: import Excel ก้อนใหญ่",
     code:`// Excel 500k แถว clean แล้ว insert เข้า Postgres ให้เร็วและไม่ล่ม`,
     answer:`**stream + batch อย่าโหลดทั้งก้อนเข้า memory**
@@ -35,7 +37,8 @@ implementation: key \`ratelimit:{user}\` + \`INCR\`+\`EXPIRE\` หรือ sort
 4. checkpoint ว่า import ถึงไหน → resume ได้ถ้าล่ม
 5. idempotent: \`ON CONFLICT\` กันข้อมูลซ้ำตอนรันใหม่
 
-**คำสำคัญ:** stream, batch, transaction, idempotent, resume`},
+**คำสำคัญ:** stream, batch, transaction, idempotent, resume`,
+    note:`stream/batch ไม่โหลดทั้งก้อนเข้า memory + ทำแบบ async. แนวคิด: งานใหญ่ต้องแบ่ง chunk + ไม่บล็อก request path + ทนต่อ failure (resume/idempotent)`},
    {type:"concept", title:"กันจ่ายเงินซ้ำ (idempotency)",
     code:`// user กดปุ่มจ่ายเงินรัวๆ / network retry → อย่าให้ตัดเงินซ้ำ`,
     answer:`**ใช้ idempotency key**
@@ -51,7 +54,8 @@ implementation: key \`ratelimit:{user}\` + \`INCR\`+\`EXPIRE\` หรือ sort
 
 เสริม: unique constraint ที่ DB เป็นด่านสุดท้ายกัน race จาก 2 request พร้อมกัน
 
-**กุญแจ:** คำว่า idempotency key + unique constraint + atomic — โชว์ว่าเข้าใจ retry semantics ของระบบจ่ายเงิน`},
+**กุญแจ:** คำว่า idempotency key + unique constraint + atomic — โชว์ว่าเข้าใจ retry semantics ของระบบจ่ายเงิน`,
+    note:`idempotency key กันทำซ้ำเมื่อ client retry. แนวคิด: network ไม่น่าเชื่อถือ → operation ที่มี side effect (จ่ายเงิน) ต้อง idempotent โดยออกแบบ`},
    {type:"concept", title:"cache ข้อมูลเก่า (invalidation)",
     code:`// cache product ใน Redis แต่ราคาอัปเดตแล้ว cache ยังเก่า แก้ยังไง?`,
     answer:`**Cache invalidation — เลือกกลยุทธ์ตามว่าข้อมูลเปลี่ยนบ่อยแค่ไหน + ทนข้อมูลเก่าได้ไหม**
@@ -64,7 +68,8 @@ implementation: key \`ratelimit:{user}\` + \`INCR\`+\`EXPIRE\` หรือ sort
 - ลบ cache (delete) ปลอดภัยกว่าเขียนทับ (set) — กัน race เขียนค่าเก่าทับใหม่
 - ระวัง cache stampede: หลาย request พุ่งหา DB พร้อมกันตอน cache หมดอายุ → ใช้ lock/single-flight
 
-**คำตอบที่ดี:** "ผมจะ invalidate ตอน write + ตั้ง TTL กันพลาดครับ และใช้ลบ key แทนเขียนทับเพื่อกัน race"`},
+**คำตอบที่ดี:** "ผมจะ invalidate ตอน write + ตั้ง TTL กันพลาดครับ และใช้ลบ key แทนเขียนทับเพื่อกัน race"`,
+    note:`invalidate ตอน write + ตั้ง TTL กันพลาด, ลบ key ดีกว่าเขียนทับ (กัน race). แนวคิด: cache คือ copy ที่อาจ stale; ความถูกต้องแลกกับ latency — เลือก consistency model ให้ตรงงาน`},
    {type:"concept", title:"รับอัปโหลดไฟล์จำนวนมาก",
     code:`// ระบบให้ user อัปโหลดรูป/ไฟล์เยอะมาก ออกแบบยังไงให้ scale?`,
     answer:`**อย่าให้ไฟล์วิ่งผ่าน app server / อย่าเก็บใน DB**
@@ -76,7 +81,8 @@ implementation: key \`ratelimit:{user}\` + \`INCR\`+\`EXPIRE\` หรือ sort
 5. **CDN** หน้าไฟล์ที่อ่านบ่อย
 
 **กุญแจ:** presigned URL + object storage + async processing — โชว์ว่ารู้ว่าไฟล์ใหญ่ไม่ควรผ่าน app/DB
-(เชื่อมกับงาน OBS→Postgres ที่ทำอยู่ได้พอดี)`},
+(เชื่อมกับงาน OBS→Postgres ที่ทำอยู่ได้พอดี)`,
+    note:`presigned URL + object storage + async processing — ไฟล์ไม่ผ่าน app/DB. แนวคิด: แยก data plane (ไฟล์ใหญ่) ออกจาก control plane (metadata) เพื่อ scale`},
    {type:"concept", title:"hot key หมดอายุพร้อมกัน (cache stampede)",
     code:`// key ยอดฮิตใน cache หมดอายุพร้อมกัน
 // → ทุก request เห็น miss พร้อมกัน → ยิง DB ถล่มทีเดียว`,
@@ -88,7 +94,8 @@ implementation: key \`ratelimit:{user}\` + \`INCR\`+\`EXPIRE\` หรือ sort
 3. **stale-while-revalidate** — คืนค่าเก่าระหว่าง rebuild เบื้องหลัง ไม่ให้ผู้ใช้รอ
 4. **pre-warm** key สำคัญก่อนหมดอายุ
 
-**คำตอบที่ดี:** "ผมกัน stampede ด้วย single-flight + jitter TTL ครับ key ฮิตเพิ่ม stale-while-revalidate ให้ผู้ใช้ไม่รอ rebuild"`},
+**คำตอบที่ดี:** "ผมกัน stampede ด้วย single-flight + jitter TTL ครับ key ฮิตเพิ่ม stale-while-revalidate ให้ผู้ใช้ไม่รอ rebuild"`,
+    note:`single-flight + jitter TTL + stale-while-revalidate. แนวคิด: เหตุการณ์ที่ trigger พร้อมกัน (synchronized) ขยายเป็น load spike — กระจายเวลาออกจากกัน`},
    {type:"concept", title:"service ปลายทางล่ม → retry ยังไงไม่ให้ซ้ำเติม",
     code:`// service B ล่มชั่วคราว → A retry ทันทีถี่ๆ ทุก client
 // → B เพิ่งจะฟื้นก็โดนถล่มซ้ำ (retry storm)`,
@@ -104,7 +111,8 @@ retry ทันทีถี่ๆ พร้อมกันทุก client → B
 
 + retry เฉพาะ error ที่ retry ได้ (timeout/5xx ไม่ใช่ 4xx)
 
-**หลัก:** retry = backoff + jitter + cap + circuit breaker · ไม่ใช่ retry ดิบทันที`}
+**หลัก:** retry = backoff + jitter + cap + circuit breaker · ไม่ใช่ retry ดิบทันที`,
+    note:`retry = backoff + jitter + cap + circuit breaker. แนวคิด: retry ไร้การควบคุมเปลี่ยน fault ชั่วคราวเป็น cascading failure → ต้องถอยและตัดวงจร`}
   ]
 }
 );

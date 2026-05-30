@@ -18,7 +18,8 @@ await page.click('#submit');
 await expect(page.locator('.result')).toHaveText('Success');
 \`\`\`
 \`toHaveText\` retry รอเองจนขึ้น (หรือ timeout)
-**หลัก:** เห็น \`waitForTimeout\`/\`sleep\` ในเทสต์ = ธงแดง flaky`},
+**หลัก:** เห็น \`waitForTimeout\`/\`sleep\` ในเทสต์ = ธงแดง flaky`,
+    note:`ใช้ web-first assertion (auto-wait) ไม่ใช่ \`sleep\` คงที่. แนวคิด: รอ "เงื่อนไข" ไม่ใช่ "เวลา" — fixed sleep ทำให้ทั้งช้าและ flaky`},
    {type:"find", title:"selector เปราะ",
     code:`await page.click('div > div:nth-child(3) > button.btn-primary');
 await page.fill('input[type="text"]', 'hello');`,
@@ -33,7 +34,8 @@ await page.getByRole('button', { name: 'Submit' }).click();
 await page.getByLabel('Username').fill('hello');
 // หรือ getByTestId('submit-btn')
 \`\`\`
-**ความทน:** role/label/text > test-id > css class > nth-child/xpath (เปราะสุด)`},
+**ความทน:** role/label/text > test-id > css class > nth-child/xpath (เปราะสุด)`,
+    note:`ใช้ role/text/test-id ไม่ใช่ CSS path ลึก. แนวคิด: เทสต์ควรผูกกับสิ่งที่ผู้ใช้เห็น/ความหมาย ไม่ใช่โครงสร้าง DOM ที่เปลี่ยนบ่อย`},
    {type:"judge", title:"ตัดสินคำตอบ AI",
     code:`test('login', async ({ page }) => {
   await page.goto('/login');
@@ -52,7 +54,8 @@ await expect(page).toHaveURL(/\\/dashboard/);
 (retry รอ url เปลี่ยนเอง)
 2. [FAKE] \`waitForTimeout(5000)\` คือ **ต้นเหตุ flaky** ที่ควรเลี่ยง! anti-pattern ที่ทำเทสต์ช้า+เปราะ ใช้ web-first assertion (ข้อ 1) แทน
 
-**บทเรียน:** AI แนะนำ \`waitForTimeout\` บ่อยเพราะ "ดูปลอดภัย" แต่สวนหลัก E2E`},
+**บทเรียน:** AI แนะนำ \`waitForTimeout\` บ่อยเพราะ "ดูปลอดภัย" แต่สวนหลัก E2E`,
+    note:`อย่ายอมรับคำแนะนำที่ขัดกับ auto-wait model. แนวคิด: เข้าใจว่าเครื่องมือ retry ให้แล้ว ก่อนจะเพิ่ม wait เอง`},
    {type:"find", title:"เทสต์ไม่ isolate",
     code:`let page;
 test.beforeAll(async ({ browser }) => {
@@ -74,7 +77,8 @@ test('add item', async ({ page }) => {
   await expect(page.locator('#count')).toHaveText('1');
 });
 \`\`\`
-**หลัก:** แต่ละเทสต์ต้องเริ่มจาก state สะอาดของตัวเอง — ใช้ \`{ page }\` fixture อย่าแชร์ page ผ่าน beforeAll`},
+**หลัก:** แต่ละเทสต์ต้องเริ่มจาก state สะอาดของตัวเอง — ใช้ \`{ page }\` fixture อย่าแชร์ page ผ่าน beforeAll`,
+    note:`แต่ละเทสต์ได้ context/state ใหม่. แนวคิด: เทสต์ E2E ต้อง independent + repeatable เหมือน unit test — ไม่แชร์ state ข้ามเทสต์`},
    {type:"concept", title:"ไม่อยาก login ใหม่ทุกเทสต์ ทำยังไง?",
     code:`// ทุกเทสต์ต้อง login ก่อน ช้ามาก จะ reuse session ยังไง?`,
     answer:`**ใช้ storageState — login ครั้งเดียว เก็บ cookie/localStorage ไว้ใช้ซ้ำ**
@@ -94,7 +98,8 @@ test.use({ storageState: 'auth.json' });
 
 **ระวัง:** ยังต้องคง isolation — แต่ละเทสต์ได้ context ใหม่ (แค่แชร์ "สถานะ login" ไม่แชร์ page) · แยกไฟล์ state ตาม role ถ้ามีหลายสิทธิ์
 
-**กุญแจ:** คำว่า \`storageState\` — โชว์ว่ารู้วิธี reuse auth โดยไม่เสีย isolation`},
+**กุญแจ:** คำว่า \`storageState\` — โชว์ว่ารู้วิธี reuse auth โดยไม่เสีย isolation`,
+    note:`\`storageState\` reuse auth โดยยังคง isolation. แนวคิด: แยก "setup ที่แพง" (login) ออกจาก test body โดยไม่แชร์ mutable state (page/context)`},
    {type:"judge", title:"ตัดสินคำตอบ AI",
     code:`await expect(page.locator('.toast')).toBeVisible();`,
     ai:`บรรทัดนี้มีปัญหา:\n1. ต้องใส่ await page.waitForSelector('.toast') ก่อน ไม่งั้น locator หา element ไม่เจอ\n2. toBeVisible ไม่มี retry ต้องใส่ timeout เองเสมอ`,
@@ -103,7 +108,8 @@ test.use({ storageState: 'auth.json' });
 1. [FAKE] **ไม่ต้อง \`waitForSelector\` ก่อน** — \`expect(locator).toBeVisible()\` มี **auto-wait/retry ในตัว** มันจะรอจน element โผล่และมองเห็น (หรือ timeout) เอง ใส่ waitForSelector เพิ่ม = ซ้ำซ้อน
 2. [FAKE] \`toBeVisible\` **มี retry อยู่แล้ว** ตาม default timeout (5 วิ) ไม่ต้องใส่เอง (จะ override ก็ได้แต่ไม่ "ต้อง")
 
-**บทเรียน:** จุดแข็งของ Playwright คือ web-first assertion ที่ auto-wait — AI ที่แนะนำให้ใส่ wait เพิ่มแสดงว่าไม่เข้าใจ retry model เทสต์ที่ดีพึ่ง auto-wait ไม่ใช่ wait มือ`},
+**บทเรียน:** จุดแข็งของ Playwright คือ web-first assertion ที่ auto-wait — AI ที่แนะนำให้ใส่ wait เพิ่มแสดงว่าไม่เข้าใจ retry model เทสต์ที่ดีพึ่ง auto-wait ไม่ใช่ wait มือ`,
+    note:`\`toBeVisible\` มี auto-wait/retry ในตัว ไม่ต้อง \`waitForSelector\`/timeout เอง. แนวคิด: เข้าใจ retry model ของเครื่องมือก่อนเพิ่ม wait ซ้ำซ้อน`},
    {type:"find", title:"test.only หลุดขึ้น CI",
     code:`test.only('checkout flow', async ({ page }) => { /* ... */ });
 test('login',  async ({ page }) => { /* ... */ });
@@ -121,7 +127,8 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,   // เจอ .only บน CI → fail ทันที
 });
 \`\`\`
-**หลัก:** เปิด \`forbidOnly\` บน CI เสมอ · \`.only\`/\`.skip\` หลุด = coverage หายแบบเงียบ`},
+**หลัก:** เปิด \`forbidOnly\` บน CI เสมอ · \`.only\`/\`.skip\` หลุด = coverage หายแบบเงียบ`,
+    note:`เปิด \`forbidOnly\` บน CI กัน \`.only\` หลุด. แนวคิด: เครื่องมือ dev (focus/skip) ต้องมี guard ไม่ให้รั่วขึ้น CI pipeline แล้วซ่อน coverage ที่หาย`},
    {type:"find", title:"รอ networkidle กับหน้าที่ poll ตลอด",
     code:`await page.goto('/dashboard', { waitUntil: 'networkidle' });
 await expect(page.locator('.total')).toBeVisible();`,
@@ -136,7 +143,8 @@ await expect(page.locator('.total')).toBeVisible();  // web-first auto-wait
 \`\`\`
 (Playwright แนะนำให้เลิกใช้ \`networkidle\` ด้วยเหตุผลนี้)
 
-**หลัก:** อย่าใช้ \`networkidle\` เป็น proxy ของ "โหลดเสร็จ" → รอ element/assertion ที่หมายถึงพร้อมจริง`}
+**หลัก:** อย่าใช้ \`networkidle\` เป็น proxy ของ "โหลดเสร็จ" → รอ element/assertion ที่หมายถึงพร้อมจริง`,
+    note:`รอ element/assertion จริง ไม่ใช่ \`networkidle\` (เปราะกับ polling/websocket). แนวคิด: proxy signal (network นิ่ง) ≠ "พร้อมใช้งาน" — รอสิ่งที่หมายถึงพร้อมจริง`}
   ]
 }
 );
