@@ -90,7 +90,16 @@ groups.forEach(g=>{
   });
   nav.appendChild(wrap);
 });
+
+// "เล่นเกม" entry — opens the Bug Hunter arcade (game.js) inside #main
+const playBtn=document.createElement('button');
+playBtn.className='play-btn';
+playBtn.innerHTML='🎮 เล่นเกม Bug Hunter';
+playBtn.onclick=()=>{ if(window.Game){Game.open();} if(window.innerWidth<=860)sidebar.classList.remove('open'); };
+nav.parentNode.insertBefore(playBtn, nav);
+
 function render(cat){
+  if(window.Game) Game.leave(); // stop any running game timer when leaving the arcade
   const d=DATA.find(x=>x.cat===cat);
   const lang=catLang(cat);
   document.querySelectorAll('.navitem').forEach(n=>n.classList.toggle('active',n.dataset.cat===cat));

@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bug Hunter — จับโกหก AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f4f6f3;--panel:#fff;--panel-2:#eef1ed;--line:#e1e6df;
+    --ink:#1b2420;--muted:#5f6b62;--dim:#9aa49a;
+    --accent:#16804f;--accent-dim:#0f6440;
+    --real:#1f9d63;--fake:#d8742a;--wrong:#c0392b;
+    --code-bg:#f5f7f4;--code-ink:#26322b;
+    --shadow:0 14px 40px -22px rgba(20,60,40,.4);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{
+    background:radial-gradient(900px 500px at 100% -10%,rgba(22,128,79,.07),transparent 60%),
+      radial-gradient(700px 500px at -10% 110%,rgba(216,116,42,.06),transparent 55%),var(--bg);
+    color:var(--ink);font-family:'Outfit',sans-serif;line-height:1.55;
+    -webkit-font-smoothing:antialiased;min-height:100vh;
+    display:flex;align-items:flex-start;justify-content:center;padding:18px;
+  }
+  .app{width:100%;max-width:560px}
+  .screen{display:none;animation:pop .3s ease}
+  .screen.on{display:block}
+  @keyframes pop{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+  /* HOME */
+  .hero{text-align:center;padding:30px 0 18px}
+  .badge{width:74px;height:74px;border-radius:20px;margin:0 auto 16px;
+    background:linear-gradient(135deg,var(--accent),#3cae73);display:grid;place-items:center;
+    font-size:38px;box-shadow:0 12px 30px -10px rgba(22,128,79,.6)}
+  .hero h1{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:34px;letter-spacing:-1px}
+  .hero p{color:var(--muted);font-size:15px;margin-top:6px;padding:0 10px}
+  .stat-row{display:flex;gap:12px;margin:22px 0}
+  .stat{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;text-align:center;box-shadow:var(--shadow)}
+  .stat .v{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:24px;color:var(--accent-dim)}
+  .stat .l{font-size:11.5px;color:var(--muted);margin-top:2px}
+  .mode-btn{display:flex;align-items:center;gap:16px;width:100%;text-align:left;cursor:pointer;
+    background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:14px;
+    box-shadow:var(--shadow);transition:.15s}
+  .mode-btn:hover{transform:translateY(-2px);border-color:var(--accent)}
+  .mode-btn .ic{font-size:34px;flex-shrink:0}
+  .mode-btn h3{font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:19px}
+  .mode-btn p{font-size:13px;color:var(--muted);margin-top:2px}
+
+  /* HUD */
+  .hud{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:16px}
+  .hud .back{cursor:pointer;border:1px solid var(--line);background:var(--panel);border-radius:10px;
+    width:40px;height:40px;font-size:18px;color:var(--muted);flex-shrink:0}
+  .hud-mid{flex:1;text-align:center}
+  .lives{font-size:18px;letter-spacing:2px}
+  .timer{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:20px;color:var(--accent-dim)}
+  .timer.warn{color:var(--wrong)}
+  .score-box{text-align:right;flex-shrink:0;min-width:70px}
+  .score-box .s{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:22px}
+  .score-box .mult{font-size:11px;color:var(--fake);font-weight:600;height:14px}
+  .progress{height:6px;background:var(--panel-2);border-radius:6px;overflow:hidden;margin-bottom:16px}
+  .progress>div{height:100%;background:var(--accent);transition:width .3s}
+
+  /* CARD */
+  .qcard{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:20px;box-shadow:var(--shadow)}
+  .chip{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;
+    color:var(--accent-dim);background:rgba(22,128,79,.12);padding:3px 10px;border-radius:20px;margin-bottom:12px}
+  pre.code{background:var(--code-bg);border:1px solid #e2e8e2;border-radius:11px;padding:14px 16px;
+    overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:13px;line-height:1.6;color:var(--code-ink);white-space:pre}
+  .claim{margin-top:16px;padding:14px 16px;border-radius:12px;background:linear-gradient(180deg,rgba(40,110,210,.06),transparent);
+    border:1px dashed #c2cdd9;font-size:15px}
+  .claim .who{font-family:'JetBrains Mono',monospace;font-size:11px;color:#2466c9;font-weight:600;margin-bottom:6px}
+  .claim .who::before{content:"🤖 "}
+  .answers{display:flex;gap:12px;margin-top:18px}
+  .ans{flex:1;cursor:pointer;border:2px solid var(--line);background:var(--panel);border-radius:14px;
+    padding:16px 10px;font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:18px;transition:.12s}
+  .ans:active{transform:scale(.97)}
+  .ans.real{color:var(--real)}
+  .ans.fake{color:var(--fake)}
+  .ans.real:hover{border-color:var(--real);background:rgba(31,157,99,.08)}
+  .ans.fake:hover{border-color:var(--fake);background:rgba(216,116,42,.08)}
+  .ans.picked-correct{border-color:var(--real);background:rgba(31,157,99,.16)}
+  .ans.picked-wrong{border-color:var(--wrong);background:rgba(192,57,43,.14);color:var(--wrong)}
+  .ans.reveal{border-color:var(--real);background:rgba(31,157,99,.1)}
+  .ans:disabled{cursor:default}
+
+  .feedback{margin-top:16px;border-radius:12px;padding:14px 16px;font-size:14px;display:none}
+  .feedback.show{display:block;animation:pop .25s}
+  .feedback.ok{background:rgba(31,157,99,.12);border:1px solid rgba(31,157,99,.4)}
+  .feedback.no{background:rgba(192,57,43,.1);border:1px solid rgba(192,57,43,.35)}
+  .feedback .verdict{font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:16px;margin-bottom:4px}
+  .feedback.ok .verdict{color:var(--accent-dim)}
+  .feedback.no .verdict{color:var(--wrong)}
+  .feedback code{font-family:'JetBrains Mono',monospace;font-size:12.5px;background:var(--code-bg);border:1px solid #e2e8e2;border-radius:5px;padding:1px 5px}
+  .nextbtn{margin-top:14px;width:100%;cursor:pointer;border:none;background:var(--accent);color:#fff;
+    font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:16px;padding:14px;border-radius:12px;display:none}
+  .nextbtn.show{display:block}
+  .nextbtn:active{transform:scale(.98)}
+  .floater{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'Bricolage Grotesque',sans-serif;
+    font-weight:800;font-size:40px;pointer-events:none;opacity:0;z-index:99}
+  .floater.go{animation:floatUp .8s ease}
+  @keyframes floatUp{0%{opacity:0;transform:translate(-50%,-30%) scale(.6)}30%{opacity:1}100%{opacity:0;transform:translate(-50%,-130%) scale(1.1)}}
+
+  /* CAMPAIGN */
+  .levels{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:6px}
+  .lvl{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;cursor:pointer;
+    box-shadow:var(--shadow);transition:.15s;position:relative}
+  .lvl:hover{transform:translateY(-2px)}
+  .lvl.locked{opacity:.5;cursor:not-allowed;filter:grayscale(.6)}
+  .lvl .ic{font-size:28px}
+  .lvl h4{font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:15px;margin-top:8px;letter-spacing:-.2px}
+  .lvl .stars{margin-top:6px;font-size:15px;letter-spacing:1px;color:#e8b800}
+  .lvl .lock{position:absolute;top:14px;right:14px;font-size:16px}
+
+  /* RESULTS */
+  .result{text-align:center;background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:34px 24px;box-shadow:var(--shadow);margin-top:20px}
+  .result .big{font-size:54px}
+  .result h2{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:28px;margin-top:6px}
+  .result .bigscore{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:46px;color:var(--accent-dim);margin:14px 0}
+  .result .sub{color:var(--muted);font-size:14px}
+  .result .stars-big{font-size:38px;letter-spacing:6px;color:#e8b800;margin:10px 0}
+  .rbtns{display:flex;gap:12px;margin-top:24px}
+  .rbtn{flex:1;cursor:pointer;border:none;border-radius:13px;padding:14px;font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:15px}
+  .rbtn.primary{background:var(--accent);color:#fff}
+  .rbtn.ghost{background:var(--panel-2);color:var(--ink);border:1px solid var(--line)}
+  .tiny{text-align:center;color:var(--dim);font-size:12px;font-family:'JetBrains Mono',monospace;margin-top:24px}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- HOME -->
+  <section class="screen on" id="home">
+    <div class="hero">
+      <div class="badge">🐛</div>
+      <h1>Bug Hunter</h1>
+      <p>จับโกหก AI ให้ได้ — โค้ดมีบั๊กจริงไหม? คำวิจารณ์ของ AI เชื่อได้แค่ไหน? แตะ "จริง" หรือ "มั่ว"</p>
+    </div>
+    <div class="stat-row">
+      <div class="stat"><div class="v" id="hiScore">0</div><div class="l">คะแนนสูงสุด</div></div>
+      <div class="stat"><div class="v" id="totalStars">0</div><div class="l">ดาวที่เก็บได้</div></div>
+    </div>
+    <button class="mode-btn" onclick="startRapid()">
+      <span class="ic">⚡</span>
+      <div><h3>โหมดรัว</h3><p>60 วินาที 3 ชีวิต ตอบถูกติดกันยิ่งได้คะแนนคูณ</p></div>
+    </button>
+    <button class="mode-btn" onclick="showCampaign()">
+      <span class="ic">🗺️</span>
+      <div><h3>ไล่ด่าน</h3><p>8 ด่านตามหมวด เก็บดาว ปลดล็อกด่านถัดไป</p></div>
+    </button>
+    <p class="tiny">ความคืบหน้าถูกเซฟไว้ในเครื่องนี้</p>
+  </section>
+
+  <!-- GAME -->
+  <section class="screen" id="game">
+    <div class="hud">
+      <button class="back" onclick="goHome()">‹</button>
+      <div class="hud-mid">
+        <div id="hudLives" class="lives"></div>
+        <div id="hudTimer" class="timer" style="display:none"></div>
+        <div id="hudLevelName" style="font-size:13px;color:var(--muted);font-family:'JetBrains Mono',monospace"></div>
+      </div>
+      <div class="score-box"><div class="s" id="hudScore">0</div><div class="mult" id="hudMult"></div></div>
+    </div>
+    <div class="progress"><div id="progBar" style="width:0%"></div></div>
+    <div class="qcard">
+      <span class="chip" id="qChip"></span>
+      <pre class="code" id="qCode"></pre>
+      <div class="claim"><div class="who">AI วิจารณ์ว่า:</div><div id="qClaim"></div></div>
+      <div class="answers">
+        <button class="ans real" id="btnReal" onclick="answer('real')">✓ จริง</button>
+        <button class="ans fake" id="btnFake" onclick="answer('fake')">✗ มั่ว</button>
+      </div>
+      <div class="feedback" id="fb"><div class="verdict" id="fbVerdict"></div><div id="fbText"></div></div>
+      <button class="nextbtn" id="nextBtn" onclick="next()">ต่อไป →</button>
+    </div>
+  </section>
+
+  <!-- CAMPAIGN -->
+  <section class="screen" id="campaign">
+    <div class="hud"><button class="back" onclick="goHome()">‹</button>
+      <div class="hud-mid"><div style="font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:18px">เลือกด่าน</div></div>
+      <div style="width:40px"></div></div>
+    <div class="levels" id="levelGrid"></div>
+  </section>
+
+  <!-- RESULTS -->
+  <section class="screen" id="results">
+    <div class="result">
+      <div class="big" id="rEmoji">🎉</div>
+      <h2 id="rTitle">จบเกม!</h2>
+      <div class="stars-big" id="rStars" style="display:none"></div>
+      <div class="bigscore" id="rScore">0</div>
+      <div class="sub" id="rSub"></div>
+      <div class="rbtns">
+        <button class="rbtn ghost" onclick="goHome()">หน้าหลัก</button>
+        <button class="rbtn primary" id="rAgain">เล่นอีก</button>
+      </div>
+    </div>
+  </section>
+</div>
+<div class="floater" id="floater"></div>
+<script>
+// ===== ข้อมูลการ์ด: lv=ด่าน, v='real'/'fake', e=คำอธิบาย =====
+const CARDS=[
+// ── ด่าน 1: Go Basics ──
+{lv:1,cat:"Go Basics",code:`var m map[string]int
+m["a"]++`,claim:`เขียนลง map แบบนี้จะ panic เพราะเป็น nil map`,v:"real",e:`ถูก — var โดยไม่ make ได้ nil map เขียนแล้ว panic "assignment to entry in nil map" ต้อง make(map...) ก่อน`},
+{lv:1,cat:"Go Basics",code:`for i := 0; i <= len(s); i++ {
+\t_ = s[i]
+}`,claim:`loop นี้ทำงานปกติ ไม่มีปัญหาอะไร`,v:"fake",e:`มั่ว — i <= len(s) รอบสุดท้าย s[len(s)] เกินขอบ → panic ต้องเป็น i < len(s)`},
+{lv:1,cat:"Go Basics",code:`return sum / len(nums)`,claim:`ถ้า nums เป็น slice ว่าง บรรทัดนี้จะ panic หารด้วยศูนย์`,v:"real",e:`ถูก — len=0 → integer divide by zero → panic ต้องเช็ค len ก่อนหาร`},
+{lv:1,cat:"Go Basics",code:`len("สมชาย")`,claim:`คืนค่า 5 เพราะนับจำนวนตัวอักษร`,v:"fake",e:`มั่ว — len(string) นับ byte ภาษาไทยตัวละ 3 byte → คืน 15 ถ้าจะนับตัวอักษรใช้ utf8.RuneCountInString`},
+{lv:1,cat:"Go Basics",code:`price := prices[sku]
+return price * 2`,claim:`ควรใช้ comma-ok (v, ok :=) ไม่งั้นถ้า sku ไม่มีจะได้ 0 เงียบๆ`,v:"real",e:`ถูก — อ่าน map ที่ไม่มี key คืน zero value โดยไม่มีสัญญาณ ควร v, ok := prices[sku]`},
+// ── ด่าน 2: Go Concurrency ──
+{lv:2,cat:"Concurrency",code:`go func() {
+\tresults = append(results, p)
+}()`,claim:`append เข้า slice ร่วมจากหลาย goroutine แบบนี้เกิด data race`,v:"real",e:`ถูก — append slice เดียวกันพร้อมกันคือ data race เขียนตาม index หรือใช้ mutex/channel`},
+{lv:2,cat:"Concurrency",code:`for i := 0; i < len(nums); i++ {
+\tsum += nums[i]
+}`,claim:`loop นี้มี race condition ควรใส่ mutex`,v:"fake",e:`มั่ว — ไม่มี goroutine เลย เป็น loop ลำดับเดียว race เกิดเฉพาะตอนหลาย goroutine แตะข้อมูลร่วม`},
+{lv:2,cat:"Concurrency",code:`go func() {
+\twg.Add(1)
+\tdefer wg.Done()
+\twork()
+}()`,claim:`wg.Add อยู่ในข้าง goroutine ทำให้ Wait อาจผ่านก่อนงานเสร็จ`,v:"real",e:`ถูก — Wait อาจรันก่อน Add ทัน → เห็น counter 0 → ผ่านเลย ต้อง Add ก่อน go`},
+{lv:2,cat:"Concurrency",code:`var once sync.Once
+once.Do(func(){ cfg = load() })`,claim:`sync.Once ไม่ thread-safe ต้องใส่ mutex เพิ่ม`,v:"fake",e:`มั่ว — sync.Once thread-safe โดยออกแบบ รับประกันรันครั้งเดียวแม้หลาย goroutine ไม่ต้องใส่ mutex`},
+{lv:2,cat:"Concurrency",code:`for v := range ch {
+\tprintln(v)
+}
+// producer ไม่ได้ close(ch)`,claim:`จะ deadlock เพราะ producer ไม่ปิด channel`,v:"real",e:`ถูก — range รอตลอดไป พอส่งครบแล้วไม่ close → block รอตัวต่อไป → deadlock`},
+// ── ด่าน 3: Go Errors ──
+{lv:3,cat:"Errors",code:`f, _ := os.Open(path)
+data, _ := io.ReadAll(f)`,claim:`กลืน error ตอน Open ถ้าเปิดไม่ได้ f เป็น nil อาจ panic`,v:"real",e:`ถูก — เปิดไม่ได้ f=nil → ReadAll(nil) panic ต้องเช็ค err ก่อน`},
+{lv:3,cat:"Errors",code:`resp, err := http.Get(url)
+if err != nil { return err }
+json.NewDecoder(resp.Body).Decode(&u)`,claim:`ลืม defer resp.Body.Close() จะทำให้ connection leak`,v:"real",e:`ถูก — ไม่ปิด Body → connection ไม่ถูกคืน leak สะสม`},
+{lv:3,cat:"Errors",code:`row := db.QueryRow(q, id)
+row.Scan(&x)`,claim:`ต้อง defer row.Close() ไม่งั้น connection leak`,v:"fake",e:`มั่ว — QueryRow คืน *sql.Row ไม่มี method Close() ใส่แล้ว compile ไม่ผ่าน Scan ปิดให้เอง (Query ที่คืน Rows ต่างหากที่ต้อง Close)`},
+{lv:3,cat:"Errors",code:`if err == sql.ErrNoRows {
+\treturn nil
+}`,claim:`เทียบ error ด้วย == แบบนี้ปลอดภัยดีแล้ว`,v:"fake",e:`มั่ว — ถ้า error ถูก wrap (%w) ที่ไหนสักชั้น == จะ false ควรใช้ errors.Is(err, sql.ErrNoRows)`},
+{lv:3,cat:"Errors",code:`n, err := strconv.Atoi(s)`,claim:`Atoi ช้ากว่า ParseInt ควรเปลี่ยนไปใช้ ParseInt`,v:"fake",e:`มั่ว — Atoi เรียก ParseInt(s,10,0) ข้างในอยู่แล้ว มันคือ wrapper ตัวเดียวกัน ไม่มีเรื่อง performance ต่างกัน`},
+// ── ด่าน 4: SQL ──
+{lv:4,cat:"SQL",code:`for _, u := range users {
+\tdb.Query("... WHERE user_id = $1", u.ID)
+}`,claim:`นี่คือ N+1 query ควรรวมเป็น query เดียวด้วย IN/ANY`,v:"real",e:`ถูก — ยิง query ต่อ user มี 100 user = 100 query รวมเป็น WHERE user_id = ANY($1) แล้ว group`},
+{lv:4,cat:"SQL",code:`WHERE DATE(created_at) = '2025-05-30'`,claim:`query นี้ใช้ index บน created_at ได้เต็มที่`,v:"fake",e:`มั่ว — ฟังก์ชัน DATE() ครอบคอลัมน์ทำให้ index ใช้ไม่ได้ (non-sargable) ควรเทียบเป็น range >= ... < ...`},
+{lv:4,cat:"SQL",code:`-- เดิม LEFT JOIN orders
+-- AI: เปลี่ยนเป็น INNER JOIN`,claim:`เปลี่ยน LEFT เป็น INNER JOIN ได้ผลลัพธ์เหมือนเดิมแต่เร็วกว่า`,v:"fake",e:`มั่ว — เปลี่ยน join เปลี่ยนผลลัพธ์ LEFT เก็บ row ที่ไม่มีคู่ (count=0) INNER ตัดทิ้ง เป็นคนละ requirement`},
+{lv:4,cat:"SQL",code:`UPDATE accounts SET bal=bal-$1 WHERE id=$2;
+UPDATE accounts SET bal=bal+$1 WHERE id=$3;`,claim:`สองคำสั่งนี้ควรห่อ transaction ไม่งั้นถ้าตัวที่สองพัง เงินอาจหาย`,v:"real",e:`ถูก — ถ้าตัวแรกสำเร็จ ตัวสองพัง → เงินหักแต่ไม่เข้า ต้อง BeginTx/Commit ให้ atomic`},
+{lv:4,cat:"SQL",code:`SELECT * FROM posts
+ORDER BY id LIMIT 20 OFFSET 200000`,claim:`OFFSET ใหญ่ทำให้ช้า เพราะต้องสแกนทิ้งทุกแถวก่อนหน้า`,v:"real",e:`ถูก — OFFSET 200000 ต้องอ่าน+ข้าม 2 แสนแถวก่อน ควรใช้ keyset pagination (WHERE id > last_id)`},
+// ── ด่าน 5: Testing ──
+{lv:5,cat:"Testing",code:`u, err := svc.Get(1)
+assert.NoError(t, err)
+assert.Equal(t, "A", u.Name)`,claim:`ควรใช้ require.NoError ไม่งั้นถ้า err ไม่ nil บรรทัด u.Name จะ panic`,v:"real",e:`ถูก — assert ไม่หยุด ถ้า err แล้ว u อาจ nil → u.Name panic ใช้ require ตรงที่บรรทัดถัดไปต้องพึ่งพา`},
+{lv:5,cat:"Testing",code:`assert.Equal(t, result, 5)`,claim:`assert ไม่ทำให้ test fail ต้องเปลี่ยนเป็น require เท่านั้น test ถึง fail`,v:"fake",e:`มั่ว — assert ทำให้ fail ปกติ (t.Fail) แค่ไม่หยุด execution ต่างจาก require ที่หยุด (t.FailNow)`},
+{lv:5,cat:"Testing",code:`assert.Equal(t, result, 5)`,claim:`ลำดับ argument ควรเป็น assert.Equal(t, 5, result) คือ expected ก่อน actual`,v:"real",e:`ถูก — convention คือ (t, expected, actual) สลับแล้ว error message กลับด้าน debug งง`},
+{lv:5,cat:"Testing",code:`for _, tt := range tests {
+\tt.Run(tt.name, func(t *testing.T){
+\t\tt.Parallel()
+\t\t// ใช้ tt
+\t})
+}`,claim:`ต้อง capture tt (tt := tt) ก่อน ไม่งั้น parallel subtest อาจใช้ค่าสุดท้ายหมด (Go < 1.22)`,v:"real",e:`ถูก — parallel รอ loop จบก่อนรัน ถ้า Go<1.22 tt ถูกแชร์ → ค่าสุดท้ายทุกตัว ต้อง tt := tt`},
+{lv:5,cat:"Testing",code:`var cache = map[int]string{}
+func TestB(t){ assert.Equal(t,"a",cache[1]) } // พึ่ง TestA set ไว้`,claim:`เทสต์แชร์ global state แบบนี้เขียนถูกต้องดีแล้ว`,v:"fake",e:`มั่ว — เทสต์ต้อง isolated พึ่งลำดับ/ผลของเทสต์อื่นไม่ได้ รันแยกหรือ parallel จะ flaky`},
+// ── ด่าน 6: TypeScript ──
+{lv:6,cat:"TypeScript",code:`function calc(items: any[]) { ... }`,claim:`ใช้ any[] ทิ้ง type safety ควรกำหนด type ให้ชัด`,v:"real",e:`ถูก — any ปิด type check ทั้งหมด ควร items: { price: number }[] เป็นต้น`},
+{lv:6,cat:"TypeScript",code:`async function get(id) {
+\tconst res = fetch(url);
+\treturn res.json();
+}`,claim:`ลืม await fetch ทำให้ res เป็น Promise แล้ว res.json() พัง`,v:"real",e:`ถูก — fetch คืน Promise ต้อง await ก่อน (และ json() ก็ต้อง await/return อีกชั้น)`},
+{lv:6,cat:"TypeScript",code:`function f(user?: {name:string}) {
+\treturn user.name;
+}`,claim:`user เป็น optional แต่เข้าถึง user.name โดยไม่เช็ค จะ error ถ้า undefined`,v:"real",e:`ถูก — user? อาจ undefined → user.name พัง ใช้ user?.name ?? ""`},
+{lv:6,cat:"TypeScript",code:`type User = { id: number };`,claim:`ควรใช้ interface แทน type เพราะ compile เร็วกว่า`,v:"fake",e:`มั่ว — type กับ interface performance แทบไม่ต่าง เป็นเรื่อง feature/style ไม่ใช่ความเร็ว`},
+{lv:6,cat:"TypeScript",code:`items.forEach(async (i) => {
+\tawait save(i);
+});
+console.log("done");`,claim:`forEach ไม่รอ async → "done" จะพิมพ์ก่อน save เสร็จ`,v:"real",e:`ถูก — forEach ไม่สน Promise ที่ callback คืน ใช้ for...of (ทีละตัว) หรือ Promise.all`},
+// ── ด่าน 7: React ──
+{lv:7,cat:"React",code:`useEffect(() => {
+\tfetch('/api').then(setData);
+});`,claim:`ไม่มี dependency array ทำให้ fetch ทุก render กลายเป็น loop`,v:"real",e:`ถูก — ไม่ใส่ [] → รันทุก render → setData → re-render → fetch อีก ใส่ [] ให้รันครั้งเดียว`},
+{lv:7,cat:"React",code:`useEffect(() => {
+\tsetInterval(() => setCount(count + 1), 1000);
+}, []);`,claim:`count เป็น stale closure จะค้างที่ 1 ไม่เพิ่มต่อ`,v:"real",e:`ถูก — count จับค่าตอน mount (0) ค้าง ใช้ functional update setCount(c => c+1) + clearInterval cleanup`},
+{lv:7,cat:"React",code:`useEffect(() => {
+\tfetchUser(userId).then(setData);
+}, [userId]);`,claim:`ควรเอา userId ออกจาก dependency array เพราะทำให้ re-fetch`,v:"fake",e:`มั่ว — ต้องมี userId ใน deps เพื่อ re-fetch เมื่อ user เปลี่ยน เอาออก = บั๊ก (โชว์ข้อมูลคนเก่า)`},
+{lv:7,cat:"React",code:`function Price({ amount }) {
+\tconst [d, setD] = useState(amount);
+\treturn <span>{d}</span>;
+}`,claim:`เก็บ prop ลง state แบบนี้ ค่าจะไม่อัปเดตเมื่อ prop เปลี่ยน`,v:"real",e:`ถูก — useState(amount) ใช้แค่ค่าเริ่มต้นตอน mount พอ prop เปลี่ยน state ไม่ตามให้ derive จาก prop ตรงๆ`},
+{lv:7,cat:"React",code:`const fn = useCallback(() => log(name), [name]);`,claim:`ควรห่อทุกฟังก์ชันด้วย useCallback เสมอเพื่อ performance`,v:"fake",e:`มั่ว — useCallback มีต้นทุน ใส่พร่ำเพรื่อทำให้ช้า+รก ใช้เมื่อส่งลง memoized child หรือเป็น dep ของ effect เท่านั้น`},
+// ── ด่าน 8: CSS & Playwright ──
+{lv:8,cat:"CSS",code:`.btn { color: blue; }
+#submit { color: green; }
+/* <button id=submit class=btn> */`,claim:`ปุ่มจะเป็นสีเขียว เพราะ #id specificity สูงกว่า .class ไม่เกี่ยวลำดับในไฟล์`,v:"real",e:`ถูก — id ชนะ class เสมอ ลำดับในไฟล์สำคัญเฉพาะตอน specificity เท่ากัน`},
+{lv:8,cat:"CSS",code:`.container { display: flex; }
+/* item ล้น → AI: ใส่ overflow:hidden */`,claim:`ใส่ overflow:hidden ที่ container แก้ปัญหา item ล้นได้อย่างสมบูรณ์`,v:"fake",e:`มั่ว — overflow:hidden แค่ซ่อนส่วนเกิน ไม่ได้แก้ ควร flex-wrap หรือ flex-shrink`},
+{lv:8,cat:"CSS",code:`.tooltip { z-index: 9999; }
+/* แต่ไม่ขึ้นทับ modal z-index:10 */`,claim:`อาจเป็นเพราะ parent ของ tooltip สร้าง stacking context (transform/opacity) ครอบไว้`,v:"real",e:`ถูก — z-index เทียบกันได้แค่ใน stacking context เดียวกัน parent ที่มี transform/opacity ขังลูกไว้`},
+{lv:8,cat:"Playwright",code:`await page.click('#submit');
+await page.waitForTimeout(3000);`,claim:`ใส่ waitForTimeout ให้ชัวร์หลัง click เป็น best practice`,v:"fake",e:`มั่ว — hard wait คือต้นเหตุ flaky (ช้าไป fail / เร็วไปเสียเวลา) ใช้ web-first assertion ที่ auto-wait แทน`},
+{lv:8,cat:"Playwright",code:`await expect(page.locator('.toast')).toBeVisible();`,claim:`ต้องใส่ waitForSelector ก่อน ไม่งั้น locator หา element ไม่เจอ`,v:"fake",e:`มั่ว — toBeVisible auto-wait/retry ในตัวอยู่แล้ว รอจน element โผล่เอง ใส่ waitForSelector เพิ่ม = ซ้ำซ้อน`},
+];
+const LEVELS=[
+ {n:1,ic:"🌱",name:"Go Basics"},{n:2,ic:"🔀",name:"Concurrency"},
+ {n:3,ic:"⚠️",name:"Errors"},{n:4,ic:"🗄️",name:"SQL"},
+ {n:5,ic:"🧪",name:"Testing"},{n:6,ic:"🟦",name:"TypeScript"},
+ {n:7,ic:"⚛️",name:"React"},{n:8,ic:"🎨",name:"CSS & E2E"},
+];
+// ===== state & storage =====
+const SK='bughunter_v1';
+function load(){try{return JSON.parse(localStorage.getItem(SK))||{}}catch(e){return {}}}
+function save(d){try{localStorage.setItem(SK,JSON.stringify(d))}catch(e){}}
+let store=load(); // {hi:0, stars:{1:3,...}}
+if(!store.stars)store.stars={};
+
+const $=id=>document.getElementById(id);
+function show(scr){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on'));$(scr).classList.add('on')}
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function fmtE(s){return esc(s).replace(/`([^`]+?)`/g,'<code>$1</code>')}
+function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+
+let mode,queue,idx,score,lives,streak,timeLeft,timerId,levelNum,correctCount;
+
+function refreshHome(){
+  $('hiScore').textContent=store.hi||0;
+  let ts=0;Object.values(store.stars).forEach(v=>ts+=v);
+  $('totalStars').textContent=ts;
+}
+
+// ===== RAPID =====
+function startRapid(){
+  mode='rapid';queue=shuffle(CARDS);idx=0;score=0;lives=3;streak=0;timeLeft=60;correctCount=0;
+  $('hudTimer').style.display='';$('hudLevelName').textContent='';
+  show('game');tick();timerId=setInterval(tick,1000);renderCard();
+}
+function tick(){
+  $('hudTimer').textContent='⏱ '+timeLeft+'s';
+  $('hudTimer').classList.toggle('warn',timeLeft<=10);
+  if(timeLeft<=0){endGame();return}
+  timeLeft--;
+}
+
+// ===== CAMPAIGN =====
+function showCampaign(){
+  const g=$('levelGrid');g.innerHTML='';
+  LEVELS.forEach((L,i)=>{
+    const unlocked = i===0 || (store.stars[LEVELS[i-1].n]>0);
+    const st=store.stars[L.n]||0;
+    const stars = unlocked ? '★★★☆☆☆'.slice(3-st,6-st).padEnd(3,'☆').slice(0,3):'';
+    const d=document.createElement('div');
+    d.className='lvl'+(unlocked?'':' locked');
+    d.innerHTML=`<div class="ic">${L.ic}</div><h4>ด่าน ${L.n}<br>${L.name}</h4>`+
+      (unlocked?`<div class="stars">${'★'.repeat(st)}${'☆'.repeat(3-st)}</div>`:`<div class="lock">🔒</div>`);
+    if(unlocked)d.onclick=()=>startLevel(L.n);
+    g.appendChild(d);
+  });
+  show('campaign');
+}
+function startLevel(n){
+  mode='campaign';levelNum=n;
+  queue=shuffle(CARDS.filter(c=>c.lv===n));idx=0;score=0;lives=99;streak=0;correctCount=0;
+  $('hudTimer').style.display='none';
+  $('hudLevelName').textContent='ด่าน '+n+' · '+LEVELS[n-1].name;
+  show('game');renderCard();
+}
+
+// ===== shared card =====
+function renderCard(){
+  const c=queue[idx];
+  $('hudScore').textContent=score;
+  $('hudMult').textContent = streak>=3 ? '🔥 ×'+multiplier() : '';
+  $('hudLives').textContent = mode==='rapid' ? '❤️'.repeat(lives)+'🖤'.repeat(3-lives) : '';
+  $('progBar').style.width = Math.round(idx/queue.length*100)+'%';
+  $('qChip').textContent=c.cat;
+  $('qCode').textContent=c.code;
+  $('qClaim').innerHTML=fmtE(c.claim);
+  $('fb').className='feedback';$('nextBtn').className='nextbtn';
+  ['btnReal','btnFake'].forEach(b=>{$(b).className=$(b).id==='btnReal'?'ans real':'ans fake';$(b).disabled=false});
+}
+function multiplier(){return Math.min(1+Math.floor(streak/3),5)}
+
+function answer(pick){
+  const c=queue[idx];const correct=pick===c.v;
+  $('btnReal').disabled=true;$('btnFake').disabled=true;
+  const pickedBtn = pick==='real'?$('btnReal'):$('btnFake');
+  const otherBtn  = pick==='real'?$('btnFake'):$('btnReal');
+  if(correct){
+    pickedBtn.classList.add('picked-correct');
+    const gain=100*multiplier();score+=gain;streak++;correctCount++;
+    floatText('+'+gain,'#1f9d63');
+  }else{
+    pickedBtn.classList.add('picked-wrong');
+    otherBtn.classList.add('reveal');
+    streak=0;
+    if(mode==='rapid'){lives--;floatText('−1 ❤️','#c0392b')}
+  }
+  // feedback
+  const fb=$('fb');fb.className='feedback show '+(correct?'ok':'no');
+  $('fbVerdict').textContent = (c.v==='real'?'✓ จริง':'✗ มั่ว') + (correct?' — ถูกต้อง!':' — พลาด');
+  $('fbText').innerHTML=fmtE(c.e);
+  $('hudScore').textContent=score;
+  $('hudMult').textContent = streak>=3 ? '🔥 ×'+multiplier() : '';
+  $('hudLives').textContent = mode==='rapid' ? '❤️'.repeat(Math.max(0,lives))+'🖤'.repeat(3-Math.max(0,lives)) : '';
+  if(mode==='rapid' && lives<=0){setTimeout(endGame,900);return}
+  $('nextBtn').className='nextbtn show';
+  $('nextBtn').textContent = (idx+1>=queue.length)?'ดูผล →':'ต่อไป →';
+}
+function next(){
+  idx++;
+  if(idx>=queue.length){endGame();return}
+  renderCard();
+}
+function floatText(txt,col){
+  const f=$('floater');f.textContent=txt;f.style.color=col;f.className='floater';
+  void f.offsetWidth;f.className='floater go';
+}
+
+// ===== results =====
+function endGame(){
+  clearInterval(timerId);
+  const total=mode==='rapid'?idx+ (lives<=0?1:0):queue.length;
+  if(mode==='rapid'){
+    if(score>(store.hi||0)){store.hi=score;save(store)}
+    $('rEmoji').textContent = score>=(store.hi||0)&&score>0?'🏆':'⚡';
+    $('rTitle').textContent = lives<=0?'หมดชีวิต!':'หมดเวลา!';
+    $('rStars').style.display='none';
+    $('rScore').textContent=score;
+    $('rSub').textContent=`ตอบถูก ${correctCount} ข้อ · best ${store.hi||0}`;
+    $('rAgain').textContent='เล่นอีก';$('rAgain').onclick=startRapid;
+  }else{
+    const n=queue.length;const st = correctCount>=n?3 : correctCount>=n-1?2 : correctCount>=Math.ceil(n*0.6)?1:0;
+    if(st>(store.stars[levelNum]||0)){store.stars[levelNum]=st;save(store)}
+    $('rEmoji').textContent = st===3?'🌟':st>0?'🎉':'😵';
+    $('rTitle').textContent = st>0?'ผ่านด่าน '+levelNum+'!':'ยังไม่ผ่าน';
+    $('rStars').style.display='';$('rStars').textContent='★'.repeat(st)+'☆'.repeat(3-st);
+    $('rScore').textContent=correctCount+'/'+n;
+    $('rSub').textContent = st>0?(LEVELS[levelNum] && levelNum<8?'ปลดล็อกด่านถัดไปแล้ว!':'เก่งมาก!'):'ตอบถูกอย่างน้อย '+Math.ceil(n*0.6)+' ข้อเพื่อผ่าน';
+    $('rAgain').textContent = st>0&&levelNum<8?'ด่านต่อไป →':'เล่นด่านนี้อีก';
+    $('rAgain').onclick = (st>0&&levelNum<8)?()=>startLevel(levelNum+1):()=>startLevel(levelNum);
+  }
+  refreshHome();show('results');
+}
+function goHome(){clearInterval(timerId);refreshHome();show('home')}
+refreshHome();
+</script>
+</body>
+</html>
