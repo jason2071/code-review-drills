@@ -95,11 +95,20 @@ groups.forEach(g=>{
 const playBtn=document.createElement('button');
 playBtn.className='play-btn';
 playBtn.innerHTML='🎮 เล่นเกม Bug Hunter';
-playBtn.onclick=()=>{ if(window.Game){Game.open();} if(window.innerWidth<=860)sidebar.classList.remove('open'); };
+playBtn.onclick=()=>{ render('__game__'); if(window.innerWidth<=860)sidebar.classList.remove('open'); };
 nav.parentNode.insertBefore(playBtn, nav);
 
 function render(cat){
+  if(cat==='__game__'){ // game is its own "menu" — remember it like a category
+    document.querySelectorAll('.navitem').forEach(n=>n.classList.remove('active'));
+    playBtn.classList.add('active');
+    if(window.Game) Game.open();
+    try{localStorage.setItem('crd-cat','__game__');}catch(e){}
+    if(location.hash.slice(1)!=='__game__') history.replaceState(null,'','#__game__');
+    return;
+  }
   if(window.Game) Game.leave(); // stop any running game timer when leaving the arcade
+  playBtn.classList.remove('active');
   const d=DATA.find(x=>x.cat===cat);
   const lang=catLang(cat);
   document.querySelectorAll('.navitem').forEach(n=>n.classList.toggle('active',n.dataset.cat===cat));
@@ -132,8 +141,9 @@ window.toggle=function(id){
   const open=a.classList.toggle('show');b.textContent=open?'▾ ซ่อนเฉลย':'▸ ดูเฉลย';
 };
 document.getElementById('menuBtn').onclick=()=>sidebar.classList.toggle('open');
-const valid=c=>DATA.some(d=>d.cat===c);
+const valid=c=>c==='__game__'||DATA.some(d=>d.cat===c);
+const activeView=()=>playBtn.classList.contains('active')?'__game__':document.querySelector('.navitem.active')?.dataset.cat;
 let saved;try{saved=localStorage.getItem('crd-cat');}catch(e){}
 const initial=[location.hash.slice(1),saved].find(valid)||DATA[0].cat;
 render(initial);
-window.addEventListener('hashchange',()=>{const c=location.hash.slice(1);if(valid(c)&&c!==document.querySelector('.navitem.active')?.dataset.cat)render(c);});
+window.addEventListener('hashchange',()=>{const c=location.hash.slice(1);if(valid(c)&&c!==activeView())render(c);});
