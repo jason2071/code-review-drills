@@ -163,14 +163,75 @@ expect(page.url()).toContain('/dashboard');`,claim:`expect(page.url()) ไม่
 await page.waitForTimeout(5000);`,claim:`ต้องใส่ waitForTimeout(5000) หลัง click เพื่อให้แน่ใจว่าหน้าโหลดเสร็จ`,v:"fake",e:`\`waitForTimeout\` คือ **ต้นเหตุ flaky** (ช้าไป fail / เร็วไปเสียเวลา) anti-pattern ใช้ web-first assertion ที่ auto-wait แทน`},
 {lv:8,cat:"Playwright",code:`await expect(page.locator('.toast')).toBeVisible();`,claim:`ต้องใส่ waitForSelector('.toast') ก่อน ไม่งั้น locator หา element ไม่เจอ`,v:"fake",e:`\`toBeVisible\` มี **auto-wait/retry ในตัว** รอจน element โผล่เอง ใส่ \`waitForSelector\` เพิ่ม = ซ้ำซ้อน`},
 {lv:8,cat:"Playwright",code:`await expect(page.locator('.toast')).toBeVisible();`,claim:`toBeVisible ไม่มี retry ต้องใส่ timeout เองเสมอ`,v:"fake",e:`\`toBeVisible\` มี retry ตาม default timeout (5 วิ) อยู่แล้ว ไม่ต้องใส่เอง (จะ override ก็ได้แต่ไม่ "ต้อง")`},
+// ── lv9: DB Design ──
+{lv:9,cat:"DB Design",code:`-- เก็บราคาสินค้า / ยอดเงิน
+price FLOAT`,claim:`ใช้ FLOAT เก็บเงินได้ ประหยัดที่กว่าและคำนวณเร็ว`,v:"fake",e:`\`FLOAT\` เป็น binary floating point — \`0.1+0.2≠0.3\` ปัดเศษเพี้ยน เงินหาย/เกิน ใช้ \`NUMERIC(12,2)\` (exact) หรือเก็บเป็น integer หน่วยสตางค์`},
+{lv:9,cat:"DB Design",code:`-- คุณสมบัติสินค้า "ยืดหยุ่น"
+product_attributes(product_id, attr_name TEXT, attr_value TEXT)
+-- (1,'color','red') (1,'size','L') (1,'weight','500')`,claim:`EAV (key-value) แบบนี้ยืดหยุ่นดี ใช้ได้ทุกกรณี attribute เพิ่มไม่ต้อง migrate`,v:"fake",e:`EAV จ่ายแพง: query ต้อง pivot, \`attr_value\` TEXT หมด (ไม่มี type), ไม่มี constraint/FK, index ยาก ถ้า attribute รู้ล่วงหน้า → คอลัมน์จริง หรือ JSONB+GIN`},
+{lv:9,cat:"DB Design",code:`-- ตารางโตเร็ว query ช้า
+-- AI: สร้าง index ทุกคอลัมน์ไว้เลย`,claim:`สร้าง index ทุกคอลัมน์เผื่อใช้ ยังไงก็ไม่เสียหาย`,v:"fake",e:`index มีต้นทุน: ทุก \`INSERT/UPDATE/DELETE\` ต้องอัปเดต index ด้วย → write ช้าลง + กินที่ สร้างเท่าที่ query ใช้จริง (ดู WHERE/JOIN/ORDER BY)`},
+{lv:9,cat:"DB Design",code:`-- event log ข้ามหลาย timezone
+created_at TIMESTAMP   -- vs TIMESTAMPTZ`,claim:`ควรใช้ TIMESTAMPTZ ไม่ใช่ TIMESTAMP เพื่อเก็บเวลาที่มี timezone กำกวมน้อยกว่า`,v:"real",e:`\`TIMESTAMP\` (without tz) เก็บเวลาดิบ ไม่รู้ว่า zone ไหน → กำกวม \`TIMESTAMPTZ\` เก็บเป็น UTC แปลงตาม session ถูกต้อง — best practice เก็บเวลา`},
+{lv:9,cat:"DB Design",code:`-- soft delete
+users(id, email UNIQUE, deleted_at TIMESTAMPTZ)
+-- ลบ = set deleted_at`,claim:`soft delete แบบนี้ทำให้ UNIQUE(email) พัง — สมัครซ้ำ email เดิมไม่ได้แม้ลบคนเก่าไปแล้ว`,v:"real",e:`row เก่ายังอยู่ (แค่ตั้ง \`deleted_at\`) → \`UNIQUE(email)\` ยังกันอยู่ สมัครใหม่ชน แก้: partial unique \`WHERE deleted_at IS NULL\` หรือ unique \`(email, deleted_at)\``},
+// ── lv10: System Design ──
+{lv:10,cat:"System Design",code:`// user กดจ่ายเงินรัวๆ / network retry ส่งซ้ำ
+// → อย่าให้ตัดเงินซ้ำ`,claim:`กันจ่ายซ้ำด้วย idempotency key (UUID ต่อ 1 จ่าย) + unique constraint ที่ DB`,v:"real",e:`idempotency key ที่ client gen + เก็บลง DB (unique) ก่อนประมวลผล → request ซ้ำเจอ key เดิมคืนผลเก่า ไม่ตัดซ้ำ unique constraint เป็นด่านกัน race`},
+{lv:10,cat:"System Design",code:`// service B ล่มชั่วคราว
+// → A retry ทันทีถี่ๆ ทุก client`,claim:`B ล่มก็ retry ทันทีถี่ๆ ทุก client จะได้สำเร็จเร็วที่สุด`,v:"fake",e:`retry storm — B กำลังจะฟื้นโดนถล่มซ้ำจนล่มต่อ (cascading failure) ต้อง exponential backoff + jitter + cap จำนวน + circuit breaker`},
+{lv:10,cat:"System Design",code:`// user อัปโหลดรูป/ไฟล์จำนวนมาก
+// AI: เก็บไฟล์เป็น BLOB ใน DB`,claim:`เก็บไฟล์เป็น BLOB ใน DB จัดการง่าย backup พร้อมกันได้`,v:"fake",e:`ไฟล์ใหญ่ใน DB ทำ DB อืด/backup บวม ควรเก็บใน object storage (S3/OBS) เก็บแค่ metadata+URL ใน DB ให้ client อัปตรงด้วย presigned URL ไม่ผ่าน app`},
+{lv:10,cat:"System Design",code:`// key ยอดฮิตใน cache หมดอายุพร้อมกัน
+// → ทุก request miss พร้อมกัน → ถล่ม DB`,claim:`กัน cache stampede ด้วย single-flight (request เดียว rebuild) + jitter TTL`,v:"real",e:`single-flight ให้ตัวเดียว rebuild ที่เหลือรอผลเดียวกัน + jitter TTL สุ่มเวลาหมดอายุไม่ให้ key พร้อมกัน (เสริม stale-while-revalidate) แก้ stampede ตรงจุด`},
+{lv:10,cat:"System Design",code:`// อัปเดตราคาใน DB แล้ว cache Redis ยังเก่า
+// AI: เขียนทับ cache (SET) ทันทีหลัง update`,claim:`invalidate cache ด้วยการ SET ค่าใหม่ทับ ปลอดภัยกว่าการ DELETE key`,v:"fake",e:`SET ทับเสี่ยง race: 2 write สลับกัน ค่าเก่าทับใหม่ค้าง DELETE key ปลอดภัยกว่า (miss ครั้งหน้าโหลดสดจาก DB) — ลบดีกว่าเขียนทับ`},
+// ── lv11: Data Modeling ──
+{lv:11,cat:"Data Modeling",code:`-- จองโรงแรม: ห้ามจองห้องเดียวกันช่วงวันทับกัน
+bookings(id, room_id, period DATERANGE)`,claim:`กันจองทับด้วยการ SELECT เช็คใน app ก่อน INSERT ก็พอ ไม่ต้องพึ่ง DB`,v:"fake",e:`เช็คใน app แพ้ race — 2 request พร้อมกันต่างเห็น "ว่าง" แล้ว insert ทับ ต้องบังคับที่ DB: \`EXCLUDE USING gist (room_id WITH =, period WITH &&)\` (ต้อง btree_gist)`},
+{lv:11,cat:"Data Modeling",code:`-- แชตกลุ่ม: รู้ว่าใครอ่านถึงไหน
+conversation_members(conversation_id, user_id, last_read_at)`,claim:`เก็บ "อ่านถึงไหน" (last_read_at) ไว้ที่ junction conversation_members ถูกต้อง`,v:"real",e:`\`last_read_at\` เป็นสถานะของ "คู่" (user+conversation) → อยู่ที่ junction พอดี unread = \`messages.sent_at > last_read_at\` ถ้าเก็บที่ users จะแยกตามห้องไม่ได้`},
+{lv:11,cat:"Data Modeling",code:`-- หนัง 1 เรื่องมีหลายนักแสดง, นักแสดง 1 คนเล่นหลายเรื่อง
+movies(id, title, actor_ids INT[])`,claim:`เก็บ actor_ids เป็น array ในตาราง movies พอ ไม่ต้องสร้างตารางเชื่อม`,v:"fake",e:`n-to-m ที่แท้ ใช้ junction \`movie_actors(movie_id, actor_id, ...)\` — array ทำ "หนังของนักแสดงคนนี้" ต้อง scan, ไม่มี FK บังคับ actor มีจริง, ใส่ attribute ต่อคู่ (เช่นชื่อตัวละคร) ไม่ได้`},
+{lv:11,cat:"Data Modeling",code:`-- user follow user
+follows(follower_id, followee_id, PRIMARY KEY(follower_id, followee_id))`,claim:`user follow user เป็น self-referential n-to-m → junction follows(follower_id, followee_id) ถูกต้อง`,v:"real",e:`follow คือ n-to-m ของ users กับตัวเอง junction 2 FK ชี้กลับ \`users(id)\` + PK รวมกันกันซ้ำ ถูกตามหลัก self-referential many-to-many`},
+{lv:11,cat:"Data Modeling",code:`-- สูตรอาหาร–วัตถุดิบ (n-to-m) + ปริมาณที่ใช้
+-- AI: เก็บ amount ไว้ที่ตาราง ingredients`,claim:`ปริมาณ (amount) ของวัตถุดิบในแต่ละสูตร เก็บไว้ที่ตาราง ingredients ได้เลย`,v:"fake",e:`amount เป็น attribute ของ "คู่" recipe+ingredient (สูตรเดียวกันใช้คนละปริมาณ) ต้องอยู่ที่ junction \`recipe_ingredients(recipe_id, ingredient_id, amount, unit)\` ไม่ใช่ที่ ingredients`},
+// ── lv12: ecomm Unit Test ──
+{lv:12,cat:"ecomm Test",code:`func (s *ProductService) ListProducts(...) (...) {
+\tproducts, _ := s.productRepo.List(ctx, c)  // repo ใช้ GetLimit() clamp 100
+\tpagination := c.Pagination                 // Limit ดิบจาก request เช่น 200
+\tpagination.Total = total
+\treturn products, pagination, nil
+}`,claim:`service แค่ส่งต่อค่าจาก repo ไม่มี bug แค่ test happy path + error ก็พอ`,v:"fake",e:`มี contract bug: return \`pagination.Limit=200\` (ดิบ) แต่ repo clamp เหลือ 100 → response บอก limit=200 แต่ data 100 client คำนวณหน้าผิด test ต้อง assert \`pg.Limit==100\``},
+{lv:12,cat:"ecomm Test",code:`func GetByID(...) (*Product, error) {
+\tif err == gorm.ErrRecordNotFound { return nil, nil }
+\t...
+}
+// handler: product==nil -> 404`,claim:`(nil, nil) เป็น anti-pattern เสมอ และ handler จะ panic เพราะ deref nil product`,v:"fake",e:`เกินจริง+มั่ว: \`(nil,nil)\` ยอมรับได้ถ้า caller เช็ค nil — handler ตรงนี้เช็ค \`product==nil→404\` แล้ว ไม่ deref ไม่ panic ต้องอ่าน caller ก่อนตัดสิน`},
+{lv:12,cat:"ecomm Test",code:`func GetByID(...) (*Product, error) {
+\tif err == gorm.ErrRecordNotFound { return nil, nil }
+\t...
+}`,claim:`คืน sentinel error (ErrProductNotFound) ชัดกว่า (nil, nil) — caller แยก "ไม่เจอ" กับ "พัง" ได้`,v:"real",e:`sentinel error ทำให้ caller แยก not-found ออกจาก error จริงได้ชัด ไม่ต้องเดาจาก nil — เป็นเรื่อง design ที่ดีกว่า (แต่ \`(nil,nil)\` ก็ไม่ถึงกับ crash ถ้า caller กัน nil)`},
+{lv:12,cat:"ecomm Test",code:`func (p *Pagination) Offset() int {
+\tif p.Page < 1 { p.Page = 1 }   // mutate ใน getter
+\treturn (p.Page - 1) * p.Limit
+}`,claim:`Offset() ชื่อเหมือน getter แต่แอบแก้ p.Page → response.page เพี้ยนตามลำดับการเรียก`,v:"real",e:`CQS violation: getter ไม่ควรมี side effect ถ้า client ส่ง page=0 ค่า \`p.Page\` หลังเรียก Offset() กลายเป็น 1 → test assert response.page pass/fail แล้วแต่ลำดับ (flaky-by-design)`},
+{lv:12,cat:"ecomm Test",code:`type ProductService struct {
+\tproductRepo domain.ProductRepository  // interface
+}`,claim:`ProductService ฝัง interface → mock repo เทสต์ business logic ได้โดยไม่ต้องต่อ DB`,v:"real",e:`dependency inversion: service พึ่ง interface ไม่ใช่ struct จริง → inject mock (testify/mock) ได้เลย เทสต์เร็ว+isolated ส่วน repo จริง (GORM+SQL) เทสต์เป็น integration แยกด้วย DB จริง`},
 ];
 const LEVELS=[
  {n:1,ic:"🌱",name:"Go Basics"},{n:2,ic:"🔀",name:"Concurrency"},
  {n:3,ic:"⚠️",name:"Errors"},{n:4,ic:"🗄️",name:"SQL"},
  {n:5,ic:"🧪",name:"Testing"},{n:6,ic:"🟦",name:"TypeScript"},
  {n:7,ic:"⚛️",name:"React"},{n:8,ic:"🎨",name:"CSS & E2E"},
+ {n:9,ic:"🗃️",name:"DB Design"},{n:10,ic:"🏛️",name:"System Design"},
+ {n:11,ic:"🧩",name:"Data Modeling"},{n:12,ic:"🛒",name:"ecomm Test"},
 ];
-const LANG={1:"go",2:"go",3:"go",4:"sql",5:"go",6:"ts",7:"ts",8:"css"};
+const MAXLV=LEVELS.length;
+const LANG={1:"go",2:"go",3:"go",4:"sql",5:"go",6:"ts",7:"ts",8:"css",9:"sql",10:"go",11:"sql",12:"go"};
 
 // ===== state =====
 const SK='crd-game';
@@ -198,7 +259,7 @@ function shell(){
       <div class="g-stat"><div class="v" id="totalStars">0</div><div class="l">ดาวที่เก็บได้</div></div>
     </div>
     <button class="mode-btn" id="mbRapid"><span class="ic">⚡</span><div><h3>โหมดรัว</h3><p>60 วินาที · 3 ชีวิต · ตอบถูกติดกันยิ่งได้คะแนนคูณ</p></div></button>
-    <button class="mode-btn" id="mbCampaign"><span class="ic">🗺️</span><div><h3>ไล่ด่าน</h3><p>8 ด่านตามหมวด เก็บดาว ปลดล็อกด่านถัดไป</p></div></button>
+    <button class="mode-btn" id="mbCampaign"><span class="ic">🗺️</span><div><h3>ไล่ด่าน</h3><p>12 ด่านตามหมวด เก็บดาว ปลดล็อกด่านถัดไป</p></div></button>
     <p class="g-tiny">ความคืบหน้าเซฟไว้ในเครื่องนี้ · เลือกหมวดจาก sidebar เพื่อกลับไปอ่าน drill</p>
   </section>
   <section class="screen" id="g-game">
@@ -355,9 +416,9 @@ function endGame(){
     $('rTitle').textContent = st>0?'ผ่านด่าน '+levelNum+'!':'ยังไม่ผ่าน';
     $('rStars').style.display='';$('rStars').textContent='★'.repeat(st)+'☆'.repeat(3-st);
     $('rScore').textContent=correctCount+'/'+n;
-    $('rSub').textContent = st>0?(levelNum<8?'ปลดล็อกด่านถัดไปแล้ว!':'เก่งมาก! ครบทุกด่าน'):'ตอบถูกอย่างน้อย '+Math.ceil(n*0.6)+' ข้อเพื่อผ่าน';
-    $('rAgain').textContent = (st>0&&levelNum<8)?'ด่านต่อไป →':'เล่นด่านนี้อีก';
-    $('rAgain').onclick = (st>0&&levelNum<8)?()=>startLevel(levelNum+1):()=>startLevel(levelNum);
+    $('rSub').textContent = st>0?(levelNum<MAXLV?'ปลดล็อกด่านถัดไปแล้ว!':'เก่งมาก! ครบทุกด่าน'):'ตอบถูกอย่างน้อย '+Math.ceil(n*0.6)+' ข้อเพื่อผ่าน';
+    $('rAgain').textContent = (st>0&&levelNum<MAXLV)?'ด่านต่อไป →':'เล่นด่านนี้อีก';
+    $('rAgain').onclick = (st>0&&levelNum<MAXLV)?()=>startLevel(levelNum+1):()=>startLevel(levelNum);
   }
   refreshHome();showScreen('g-results');
 }
